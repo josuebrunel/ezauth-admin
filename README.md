@@ -11,20 +11,20 @@ So I built it once. Mount it, log in as an admin, get on with your product.
 ## Quick start
 
 ```go
-auth, _ := ezauth.New(&cfg, "auth")
+auth, _ := ezauth.New(&cfg, "") // "" because Mount adds the /auth prefix
 
 panel, _ := admin.New(auth, admin.WithAppName("Acme"))
 
-r.Mount("/admin", panel.Handler()) // chi
+r.Use(auth.SessionMiddleware)
+r.Mount("/auth", auth.Handler)
+r.Mount("/admin", panel.Handler())
 ```
 
 That's it. The panel runs on your existing EzAuth instance and your existing database. No extra service, no extra deployment, no migrations of its own.
 
-It's a plain `http.Handler`, so it works with chi, Echo, or the standard library:
+Your router needs `auth.SessionMiddleware` (you need it for login anyway). The panel adds its own guard on top.
 
-```go
-e.Any("/admin/*", echo.WrapHandler(panel.Handler())) // Echo v5
-```
+It's a plain `http.Handler`, so it isn't tied to chi. But chi is what I build and test against, so that's what the docs show.
 
 ## What you get
 
@@ -49,8 +49,7 @@ Go, [Templ](https://templ.guide), [HTMX](https://htmx.org), and [DaisyUI](https:
 
 ```sh
 make test
-make css          # only if you change the styles
-make run-example
+make css    # only if you change the styles
 ```
 
 ## License
