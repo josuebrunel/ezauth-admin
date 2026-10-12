@@ -13,6 +13,7 @@ package admin
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -130,7 +131,7 @@ func (p *Panel) guard(next http.Handler) http.Handler {
 	protected := csrf.Protect(nil)(p.auth.RequireRole(p.role)(next))
 	stop := csrf.Protect(nil)(http.HandlerFunc(p.auth.Handler.FormStopImpersonation))
 
-	return p.auth.LoginRequiredMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	guarded := p.auth.LoginRequiredMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if _, impersonating := ezauth.CurrentImpersonatorID(r.Context()); impersonating {
 			if r.Method == http.MethodPost && r.URL.Path == "/impersonate/stop" {
 				stop.ServeHTTP(w, r)
@@ -145,6 +146,25 @@ func (p *Panel) guard(next http.Handler) http.Handler {
 		}
 		protected.ServeHTTP(w, r)
 	}))
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			v := recover()
+			if v == nil {
+				return
+			}
+			if v == http.ErrAbortHandler {
+				panic(v)
+			}
+			// Almost always: the host router doesn't run auth.SessionMiddleware, so
+			// there is no session to read. Say so instead of dropping the connection.
+			slog.ErrorContext(r.Context(), "admin: request panicked. If the message mentions a session, "+
+				"mount auth.SessionMiddleware on the router the panel is mounted on",
+				"panic", fmt.Sprint(v), "method", r.Method, "path", r.URL.Path)
+			p.renderError(w, r, errors.New("panel panicked"))
+		}()
+		guarded.ServeHTTP(w, r)
+	})
 }
 
 // page builds the data every full page needs.

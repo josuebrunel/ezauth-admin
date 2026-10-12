@@ -6,7 +6,7 @@ If you use EzAuth as a library, you'll build an admin panel at some point. Every
 
 So I built it once. Mount it, log in as an admin, get on with your product.
 
-> **Status:** early. The panel is feature complete for a first release: dashboard, users, roles, permissions and the audit log. The mounting guide is the last piece, tracked in [the issues](https://github.com/josuebrunel/ezauth-admin/issues). Needs EzAuth v0.31.0 or newer. Nothing is released yet.
+> **Status:** early, but complete: dashboard, users, roles, permissions and the audit log all work. A first tagged release is next. Needs EzAuth v0.31.0 or newer.
 
 ## Quick start
 
@@ -24,7 +24,7 @@ That's it. The panel runs on your existing EzAuth instance and your existing dat
 
 Your router needs `auth.SessionMiddleware` (you need it for login anyway). The panel adds its own guard on top.
 
-It's a plain `http.Handler`, so it isn't tied to chi. But chi is what I build and test against, so that's what the docs show.
+It's a plain `http.Handler`, so it isn't tied to chi. The [mounting guide](docs/mounting.md) shows chi and the standard library, the options, creating your first admin, and what to check when something doesn't work.
 
 ## What you get
 
@@ -81,4 +81,4 @@ MIT, same as EzAuth.
 
 **What works:** everything above.
 
-**What doesn't (yet):** a full mounting guide. It's coming. Follow along in the issues.
+**What doesn't (yet):** a tagged release. It's coming. Follow along in the issues.
