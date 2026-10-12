@@ -1,0 +1,63 @@
+package views
+
+// UserEdit is the profile form and any validation errors, keyed by field name.
+// The key "form" holds an error that belongs to the whole form.
+type UserEdit struct {
+	ID        string
+	Name      string
+	FirstName string
+	LastName  string
+	Username  string
+	Phone     string
+	Locale    string
+	Timezone  string
+	Errors    map[string]string
+}
+
+templ formField(label, name, value, hint string, errs map[string]string, attrs templ.Attributes) {
+	<div>
+		<label class="block text-sm font-medium" for={ "f-" + name }>{ label }</label>
+		<input
+			id={ "f-" + name }
+			name={ name }
+			value={ value }
+			class={ "input w-full mt-1", templ.KV("input-error", errs[name] != "") }
+			aria-invalid?={ errs[name] != "" }
+			aria-describedby={ "d-" + name }
+			{ attrs... }
+		/>
+		if errs[name] != "" {
+			<p id={ "d-" + name } class="text-sm text-error mt-1">{ errs[name] }</p>
+		} else if hint != "" {
+			<p id={ "d-" + name } class="text-sm muted mt-1">{ hint }</p>
+		} else {
+			<p id={ "d-" + name } class="sr-only">No hint</p>
+		}
+	</div>
+}
+
+templ UserEditPage(p Page, d UserEdit) {
+	@Layout(p, "Edit "+d.Name) {
+		<a href={ p.URL("/users/" + d.ID) } class="link text-sm font-medium inline-flex items-center gap-1">
+			@iconChevronLeft()
+			Back to { d.Name }
+		</a>
+		<h1 class="text-2xl md:text-3xl font-bold mt-4">Edit profile</h1>
+		<p class="muted mt-1">Changing the email isn't possible here, because it needs the user to verify the new address again.</p>
+		<form class="surface p-5 mt-5 grid sm:grid-cols-2 gap-4" method="post" action={ p.URL("/users/" + d.ID + "/edit") }>
+			if d.Errors["form"] != "" {
+				<div role="alert" class="alert alert-error sm:col-span-2">{ d.Errors["form"] }</div>
+			}
+			@formField("First name", "first_name", d.FirstName, "", d.Errors, templ.Attributes{"autocomplete": "off", "maxlength": "100"})
+			@formField("Last name", "last_name", d.LastName, "", d.Errors, templ.Attributes{"autocomplete": "off", "maxlength": "100"})
+			@formField("Username", "username", d.Username, "3 to 30 letters, numbers, underscores or hyphens.", d.Errors, templ.Attributes{"autocomplete": "off", "maxlength": "30"})
+			@formField("Phone", "phone", d.Phone, "International format, like +33612345678.", d.Errors, templ.Attributes{"type": "tel", "autocomplete": "off"})
+			@formField("Locale", "locale", d.Locale, "A language code, like en or fr-CA.", d.Errors, templ.Attributes{"autocomplete": "off", "maxlength": "20"})
+			@formField("Time zone", "timezone", d.Timezone, "A name like Europe/Paris.", d.Errors, templ.Attributes{"autocomplete": "off", "maxlength": "64"})
+			<div class="sm:col-span-2 flex gap-2">
+				<button class="btn btn-primary" type="submit">Save changes</button>
+				<a class="btn" href={ p.URL("/users/" + d.ID) }>Cancel</a>
+			</div>
+		</form>
+	}
+}

@@ -10,6 +10,8 @@ type Page struct {
 	// Active is the nav key of the current section ("dashboard", "users").
 	Active string
 	Crumbs []Crumb
+	// Notice is a one-off message carried over a redirect ("Profile saved.").
+	Notice string
 }
 
 // URL returns path (starting with "/") under the panel's base path.
@@ -143,6 +145,9 @@ templ Layout(p Page, title string) {
 				<div class="drawer-content flex flex-col min-w-0">
 					@topbar(p)
 					<main id="main" class="px-4 py-6 md:py-10 max-w-6xl mx-auto w-full">
+						if p.Notice != "" {
+							<div role="status" class="alert alert-success mb-4">{ p.Notice }</div>
+						}
 						{ children... }
 					</main>
 				</div>

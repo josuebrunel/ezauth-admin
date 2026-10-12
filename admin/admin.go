@@ -65,6 +65,9 @@ func (p *Panel) Handler() http.Handler {
 	mux.Handle("GET /{$}", p.handle(p.dashboard))
 	mux.Handle("GET /users", p.handle(p.usersList))
 	mux.Handle("GET /users/{id}", p.handle(p.userDetail))
+	mux.Handle("GET /users/{id}/edit", p.handle(p.userEditPage))
+	mux.Handle("POST /users/{id}/edit", p.handle(p.userEditSave))
+	mux.Handle("POST /users/{id}/delete", p.handle(p.userDelete))
 	mux.Handle("POST /users/{id}/suspend", p.handle(p.setActive(false)))
 	mux.Handle("POST /users/{id}/reactivate", p.handle(p.setActive(true)))
 	mux.Handle("POST /users/{id}/impersonate", p.handle(p.userImpersonate))
@@ -136,6 +139,7 @@ func (p *Panel) page(r *http.Request, active string, crumbs ...views.Crumb) view
 		User:     user,
 		Active:   active,
 		Crumbs:   crumbs,
+		Notice:   notices[r.URL.Query().Get("notice")],
 	}
 }
 

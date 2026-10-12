@@ -143,7 +143,10 @@ templ field(label string, value string) {
 
 templ userOverview(p Page, d UserDetail) {
 	<article class="surface p-5">
-		<h2 class="text-lg font-semibold">Profile</h2>
+		<div class="flex items-center justify-between gap-3">
+			<h2 class="text-lg font-semibold">Profile</h2>
+			<a class="btn btn-sm" href={ templ.URL(d.base(p) + "/edit") }>Edit profile</a>
+		</div>
 		<dl class="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4 mt-4">
 			@field("Username", orNotSet(d.User.Username))
 			@field("Phone", orNotSet(d.User.Phone))
@@ -168,6 +171,40 @@ templ userOverview(p Page, d UserDetail) {
 			<textarea id="notes" name="notes" class="textarea w-full mt-3" rows="3" maxlength="2000" placeholder="Add a note, for example: asked for a refund on Oct 3">{ d.Notes }</textarea>
 			<button class="btn btn-sm mt-3" type="submit">Save note</button>
 		</form>
+	</article>
+	<article class="surface p-5" aria-labelledby="h-danger">
+		<h2 id="h-danger" class="text-lg font-semibold text-error">Danger zone</h2>
+		if d.Self {
+			<p class="text-sm muted mt-1">You can't delete your own account. Ask another admin to do it.</p>
+		} else {
+			<p class="text-sm muted mt-1">Deleting a user removes their account, sessions and tokens. This can't be undone.</p>
+			<button class="btn btn-error btn-outline mt-3" type="button" data-dialog-open="delete-dialog">Delete user</button>
+			<dialog id="delete-dialog" class="modal modal-bottom sm:modal-middle" aria-labelledby="delete-title">
+				<div class="modal-box">
+					<h2 id="delete-title" class="font-display font-semibold text-lg">Delete { displayName(d.User) }?</h2>
+					<form method="post" action={ templ.URL(d.base(p) + "/delete") }>
+						<p class="py-3 text-sm">
+							This can't be undone. Type <strong class="break-all">{ d.User.Email }</strong> to confirm.
+						</p>
+						<label class="sr-only" for="delete-confirm">Type the email to confirm</label>
+						<input
+							id="delete-confirm"
+							name="confirm"
+							class="input w-full"
+							autocomplete="off"
+							data-confirm-input
+							data-confirm-value={ d.User.Email }
+							data-confirm-button="#delete-go"
+						/>
+						<div class="modal-action">
+							<button class="btn" type="submit" formmethod="dialog" formnovalidate>Cancel</button>
+							<button id="delete-go" class="btn btn-error" type="submit" disabled>Delete user</button>
+						</div>
+					</form>
+				</div>
+				<form method="dialog" class="modal-backdrop"><button aria-label="Close dialog">close</button></form>
+			</dialog>
+		}
 	</article>
 }
 

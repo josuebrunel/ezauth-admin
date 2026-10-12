@@ -6,7 +6,7 @@ If you use EzAuth as a library, you'll build an admin panel at some point. Every
 
 So I built it once. Mount it, log in as an admin, get on with your product.
 
-> **Status:** early. The users section works (list, search, detail, suspend, roles, notes, impersonate). Roles and permissions, the audit log and the dashboard are next, tracked in [the issues](https://github.com/josuebrunel/ezauth-admin/issues). Nothing is released yet.
+> **Status:** early. The users section is complete (list, search, detail, edit, delete, suspend, roles, notes, impersonate). Roles and permissions, the audit log and the dashboard are next, tracked in [the issues](https://github.com/josuebrunel/ezauth-admin/issues). Nothing is released yet.
 
 ## Quick start
 
@@ -28,7 +28,7 @@ It's a plain `http.Handler`, so it isn't tied to chi. But chi is what I build an
 
 ## What you get
 
-- **Users:** search, filter by status, paginate, see a profile, suspend, reactivate, grant and revoke roles, keep admin-only notes, impersonate. (Edit and delete are coming.)
+- **Users:** search, filter by status, paginate, see a profile, suspend, reactivate, edit the profile, delete (with a typed-email confirmation), grant and revoke roles, keep admin-only notes, impersonate.
 - **Roles and permissions:** create them, grant them, revoke them.
 - **Audit log:** who did what, and when.
 - **Dashboard:** user counts, recent sign-ups, recent activity.
@@ -38,6 +38,8 @@ Simple on purpose. Server-rendered pages, a little HTMX, no JavaScript build ste
 ## Security
 
 EzAuth's `service.Auth` methods don't check who's calling. The panel does. Every route is deny by default and sits behind your EzAuth session and the admin role (`admin` unless you change it with `admin.WithRole`). State-changing requests are protected against CSRF.
+
+You can't suspend, delete or impersonate your own account, or revoke your own admin role, so there's always an admin left. Deleting a user runs your `BeforeUserDeleted` and `AfterUserDeleted` hooks, and the panel logs who did it. EzAuth deletes a user's audit rows along with the user, so the log line is the only record.
 
 Still, it's an admin panel. Put it behind HTTPS, and think twice before exposing it to the whole internet.
 
@@ -63,4 +65,4 @@ MIT, same as EzAuth.
 
 **What works:** mounting, the default-deny guard, light and dark themes, and the whole users section.
 
-**What doesn't (yet):** editing and deleting users, roles and permissions management, the audit log and the dashboard. Follow along in the issues.
+**What doesn't (yet):** roles and permissions management, the audit log and the dashboard. Follow along in the issues.
