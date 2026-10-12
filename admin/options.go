@@ -1,6 +1,9 @@
 package admin
 
-import "strings"
+import (
+	"strings"
+	"time"
+)
 
 // Option configures a Panel.
 type Option func(*Panel)
@@ -21,6 +24,13 @@ func WithRole(role string) Option {
 // Defaults to "EzAuth".
 func WithAppName(name string) Option {
 	return func(p *Panel) { p.appName = name }
+}
+
+// WithDashboardCache sets how long the dashboard reuses its user counts.
+// Counting reads the whole users table, so the numbers are cached briefly
+// (30 seconds by default). Use 0 to count on every load.
+func WithDashboardCache(ttl time.Duration) Option {
+	return func(p *Panel) { p.counts.ttl = ttl }
 }
 
 // normalizeBasePath returns path with a leading slash and no trailing slash.

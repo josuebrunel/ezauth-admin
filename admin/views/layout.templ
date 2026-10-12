@@ -12,6 +12,9 @@ type Page struct {
 	Crumbs []Crumb
 	// Notice is a one-off message carried over a redirect ("Profile saved.").
 	Notice string
+	// Scripts are extra scripts for this page, as paths under the panel's
+	// base path (the dashboard loads Chart.js this way).
+	Scripts []string
 }
 
 // URL returns path (starting with "/") under the panel's base path.
@@ -30,13 +33,14 @@ type navItem struct {
 	Path  string
 }
 
-// navItems grows as sections land (audit log).
+// navItems lists the sections in the sidebar.
 func navItems() []navItem {
 	return []navItem{
 		{Key: "dashboard", Label: "Dashboard", Path: "/"},
 		{Key: "users", Label: "Users", Path: "/users"},
 		{Key: "roles", Label: "Roles", Path: "/roles"},
 		{Key: "permissions", Label: "Permissions", Path: "/permissions"},
+		{Key: "audit", Label: "Audit log", Path: "/audit"},
 	}
 }
 
@@ -50,6 +54,9 @@ templ head(p Page, title string) {
 		<link rel="stylesheet" href={ p.Path("/static/admin.css") }/>
 		<script src={ p.Path("/static/admin.js") }></script>
 		<script src={ p.Path("/static/htmx.min.js") } defer></script>
+		for _, src := range p.Scripts {
+			<script src={ p.Path(src) } defer></script>
+		}
 	</head>
 }
 
@@ -63,6 +70,8 @@ templ icon(key string) {
 			@iconRoles()
 		case "permissions":
 			@iconLock()
+		case "audit":
+			@iconList()
 	}
 }
 
@@ -93,7 +102,8 @@ templ sidebar(p Page) {
 		</nav>
 		if p.User != nil {
 			<p class="mt-auto text-xs muted px-2 pt-6">
-				Signed in as<br/>
+				Signed in as
+				<br/>
 				<strong class="text-base-content break-all">{ p.User.Email }</strong>
 			</p>
 		}

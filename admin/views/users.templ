@@ -38,6 +38,20 @@ func (d UsersData) pageURL(p Page, page int) string {
 	return p.Path("/users")
 }
 
+func (d UsersData) prevHref(p Page) string {
+	if d.Page > 1 {
+		return d.pageURL(p, d.Page-1)
+	}
+	return ""
+}
+
+func (d UsersData) nextHref(p Page) string {
+	if d.HasMore {
+		return d.pageURL(p, d.Page+1)
+	}
+	return ""
+}
+
 func (d UsersData) rangeText() string {
 	if len(d.Users) == 0 {
 		return ""
@@ -150,21 +164,7 @@ templ UsersResults(p Page, d UsersData) {
 				</table>
 			</div>
 		}
-		<div class="flex items-center justify-between mt-4">
-			<p class="text-sm muted">{ d.rangeText() }</p>
-			<div class="join" role="navigation" aria-label="Pagination">
-				if d.Page > 1 {
-					<a class="btn btn-sm join-item" href={ templ.URL(d.pageURL(p, d.Page-1)) } hx-get={ d.pageURL(p, d.Page-1) } hx-target="#users-results" hx-swap="outerHTML" hx-push-url="true">Previous</a>
-				} else {
-					<span class="btn btn-sm join-item btn-disabled" aria-disabled="true">Previous</span>
-				}
-				if d.HasMore {
-					<a class="btn btn-sm join-item" href={ templ.URL(d.pageURL(p, d.Page+1)) } hx-get={ d.pageURL(p, d.Page+1) } hx-target="#users-results" hx-swap="outerHTML" hx-push-url="true">Next</a>
-				} else {
-					<span class="btn btn-sm join-item btn-disabled" aria-disabled="true">Next</span>
-				}
-			</div>
-		</div>
+		@Pager(d.rangeText(), d.prevHref(p), d.nextHref(p), "#users-results")
 	</div>
 }
 

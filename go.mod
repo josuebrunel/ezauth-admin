@@ -6,7 +6,7 @@ require (
 	filippo.io/csrf v0.2.1
 	github.com/a-h/templ v0.3.1020
 	github.com/go-chi/chi/v5 v5.2.4
-	github.com/josuebrunel/ezauth v0.25.0
+	github.com/josuebrunel/ezauth v0.31.0
 )
 
 require (

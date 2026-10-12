@@ -38,9 +38,7 @@ func TestUserEdit(t *testing.T) {
 
 	t.Run("saves edits and leaves every other column alone", func(t *testing.T) {
 		// A suspended, verified account: the update must not undo either.
-		u := getUser(t, auth, id)
-		u.EmailVerified = true
-		if _, err := auth.Service.UserUpdate(ctx, u); err != nil {
+		if _, err := auth.Repo.UserSetEmailVerified(ctx, id, true); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := auth.Service.UserSuspend(ctx, id); err != nil {
@@ -78,6 +76,30 @@ func TestUserEdit(t *testing.T) {
 		mustContain(t, page, "Profile saved.", "Alicia Martin")
 	})
 
+	t.Run("a field left empty is cleared", func(t *testing.T) {
+		before := getUser(t, auth, id)
+		if before.Phone == "" || before.FirstName == "" {
+			t.Fatalf("setup: expected a phone and first name to clear, got %q and %q", before.Phone, before.FirstName)
+		}
+		code, _, _ := do(t, c, http.MethodPost, base+"/edit", url.Values{
+			"first_name": {""}, "last_name": {"Martin"}, "username": {"alicia_m"},
+			"phone": {""}, "locale": {"fr"}, "timezone": {""},
+		}, false)
+		if code != http.StatusSeeOther {
+			t.Fatalf("status %d", code)
+		}
+		after := getUser(t, auth, id)
+		if after.FirstName != "" || after.Phone != "" || after.Timezone != "" {
+			t.Errorf("fields not cleared: first name %q, phone %q, time zone %q", after.FirstName, after.Phone, after.Timezone)
+		}
+		if after.LastName != "Martin" || after.Locale != "fr" || after.Username != "alicia_m" {
+			t.Errorf("fields that were filled in changed: %+v", after)
+		}
+		if after.IsActive || !after.EmailVerified {
+			t.Errorf("clearing fields changed the flags: active=%t verified=%t", after.IsActive, after.EmailVerified)
+		}
+	})
+
 	t.Run("rejects invalid input and saves nothing", func(t *testing.T) {
 		before := getUser(t, auth, id)
 		code, body, _ := do(t, c, http.MethodPost, base+"/edit", url.Values{
@@ -102,7 +124,7 @@ func TestUserEdit(t *testing.T) {
 		if code != http.StatusConflict {
 			t.Fatalf("status %d, want 409", code)
 		}
-		mustContain(t, body, "Another user already has that username or phone number.")
+		mustContain(t, body, "Another user already has that phone number.")
 	})
 
 	t.Run("unknown user", func(t *testing.T) {
@@ -233,6 +255,11 @@ func TestUserDelete(t *testing.T) {
 		_, page, _ := do(t, c, http.MethodGet, srv.URL+"/admin/users?notice=deleted", nil, false)
 		mustContain(t, page, "User deleted.")
 		mustNotContain(t, page, "bob@example.com")
+
+		// The deletion is in the audit log, named from its own details because
+		// the account no longer exists. (ezauth used to lose this event.)
+		_, auditPage, _ := do(t, c, http.MethodGet, srv.URL+"/admin/audit?event=user.deleted", nil, false)
+		mustContain(t, auditPage, "user.deleted", "bob@example.com", "(deleted)")
 	})
 
 	t.Run("can't delete yourself", func(t *testing.T) {

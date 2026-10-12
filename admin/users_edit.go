@@ -1,12 +1,15 @@
 package admin
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
 
 	"github.com/josuebrunel/ezauth"
+	"github.com/josuebrunel/ezauth/pkg/service"
+
 	"github.com/josuebrunel/ezauth-admin/admin/views"
 )
 
@@ -50,9 +53,9 @@ func (p *Panel) renderEdit(w http.ResponseWriter, r *http.Request, status int, i
 
 // userEditSave updates the editable profile fields.
 //
-// ezauth's update writes every column, so the user is loaded in full and only
-// the edited fields are changed. Never save a partly filled user: that would
-// silently reset is_active, email_verified, mfa_enabled and the rest.
+// It goes through ezauth's UserProfileUpdate, which is built for this: every
+// field in the form is written as typed, so a field left empty is cleared, and
+// the account flags (suspended, verified, MFA) are never touched.
 func (p *Panel) userEditSave(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 	id := r.PathValue("id")
@@ -66,32 +69,60 @@ func (p *Panel) userEditSave(w http.ResponseWriter, r *http.Request) error {
 		return p.renderEdit(w, r, http.StatusUnprocessableEntity, id, user.DisplayName(), form, errs)
 	}
 
-	user.FirstName, user.LastName, user.Username = form.FirstName, form.LastName, form.Username
-	user.Phone, user.Locale, user.Timezone = form.Phone, form.Locale, form.Timezone
-
-	if err := p.auth.Service.Hook.BeforeUserUpdated(ctx, user); err != nil {
+	// The before-hook sees what the user would look like after the change.
+	candidate := *user
+	candidate.FirstName, candidate.LastName, candidate.Username = form.FirstName, form.LastName, form.Username
+	candidate.Phone, candidate.Locale, candidate.Timezone = form.Phone, form.Locale, form.Timezone
+	if err := p.auth.Service.Hook.BeforeUserUpdated(ctx, &candidate); err != nil {
 		slog.WarnContext(ctx, "admin: BeforeUserUpdated hook rejected the update", "user_id", id, "err", err)
 		return NewHTTPError(http.StatusConflict, "An app rule blocked this change.")
 	}
-	if _, err := p.auth.Service.UserUpdate(ctx, user); err != nil {
-		if isUniqueViolation(err) {
+
+	updated, err := p.auth.Service.UserProfileUpdate(ctx, id, service.ProfileUpdate{
+		FirstName: &form.FirstName,
+		LastName:  &form.LastName,
+		Username:  &form.Username,
+		Phone:     &form.Phone,
+		Locale:    &form.Locale,
+		Timezone:  &form.Timezone,
+	})
+	if err != nil {
+		if field, msg, ok := profileConflict(err); ok {
+			return p.renderEdit(w, r, http.StatusConflict, id, user.DisplayName(), form, map[string]string{field: msg})
+		}
+		if isUniqueViolation(err) { // two admins racing for the same value
 			return p.renderEdit(w, r, http.StatusConflict, id, user.DisplayName(), form,
 				map[string]string{"form": "Another user already has that username or phone number."})
 		}
 		return fmt.Errorf("update user %s: %w", id, err)
 	}
-	if err := p.auth.Service.Hook.AfterUserUpdated(ctx, user); err != nil {
+	if err := p.auth.Service.Hook.AfterUserUpdated(ctx, updated); err != nil {
 		slog.ErrorContext(ctx, "admin: AfterUserUpdated hook failed", "user_id", id, "err", err)
 	}
 	http.Redirect(w, r, p.basePath+"/users/"+id+"?notice=saved", http.StatusSeeOther)
 	return nil
 }
 
+// profileConflict maps ezauth's profile errors to the form field they belong to.
+func profileConflict(err error) (field, message string, ok bool) {
+	switch {
+	case errors.Is(err, service.ErrUsernameInUse):
+		return "username", "Another user already has that username.", true
+	case errors.Is(err, service.ErrPhoneInUse):
+		return "phone", "Another user already has that phone number.", true
+	case errors.Is(err, service.ErrInvalidUsername):
+		return "username", "Use 3 to 30 letters, numbers, underscores or hyphens.", true
+	case errors.Is(err, service.ErrInvalidPhone):
+		return "phone", "Use international format, like +33612345678.", true
+	}
+	return "", "", false
+}
+
 // userDelete deletes an account after the admin typed its email to confirm.
 //
 // ezauth's UserDelete is a bare database delete: it doesn't run the delete
-// hooks or write the audit event, which its own HTTP route does around it. So
-// the panel does the same, in the same order.
+// hooks (which also write the audit event), which its own HTTP route does
+// around it. So the panel does the same, in the same order.
 //
 // There is no "last admin" count here on purpose. The signed-in admin must
 // hold the role to reach this code, and they can't delete, suspend or demote
@@ -114,12 +145,12 @@ func (p *Panel) userDelete(w http.ResponseWriter, r *http.Request) error {
 		slog.WarnContext(ctx, "admin: BeforeUserDeleted hook rejected the delete", "user_id", id, "err", err)
 		return NewHTTPError(http.StatusConflict, "An app rule blocked this deletion.")
 	}
+
 	if err := p.auth.Service.UserDelete(ctx, id); err != nil {
 		return fmt.Errorf("delete user %s: %w", id, err)
 	}
-	// ezauth's audit table cascades on user delete (and its after-hook tries to
-	// record "user.deleted" once the row is gone), so this event can't live in
-	// the database. A structured log line is the record of who did it.
+	// ezauth's after-hook stores the "user.deleted" audit event (with the user
+	// id and email in its details), so only the actor is logged here.
 	actor, _ := ezauth.GetUserID(ctx)
 	slog.InfoContext(ctx, "admin: user deleted", "user_id", id, "deleted_by", actor)
 	if err := p.auth.Service.Hook.AfterUserDeleted(ctx, user); err != nil {

@@ -59,7 +59,7 @@ func newUser(t *testing.T, auth *ezauth.EzAuth, email, role string) {
 			t.Fatalf("create role %s: %v", role, err)
 		}
 	}
-	if err := auth.UserRoleGrant(ctx, u.ID, role); err != nil {
+	if err := auth.UserRoleGrant(ctx, "", u.ID, role); err != nil {
 		t.Fatalf("grant role %s: %v", role, err)
 	}
 }

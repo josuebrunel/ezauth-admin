@@ -2,6 +2,7 @@ package admin_test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -291,4 +292,92 @@ func TestRolesPermissions_AdminOnly(t *testing.T) {
 	if _, err := auth.Repo.RoleGetByName(context.Background(), "hacker"); err == nil {
 		t.Error("a member created a role")
 	}
+}
+
+func TestRoles_Pagination(t *testing.T) {
+	auth, srv, c := adminSession(t)
+	ctx := context.Background()
+	// admin plus 14 more makes 15 roles, sorted by name: admin and role-01 to
+	// role-09 fill page 1, and role-10 to role-14 are page 2.
+	for i := 1; i <= 14; i++ {
+		if _, err := auth.RoleCreate(ctx, fmt.Sprintf("role-%02d", i), ""); err != nil {
+			t.Fatal(err)
+		}
+	}
+	roles := srv.URL + "/admin/roles"
+
+	_, p1, _ := do(t, c, http.MethodGet, roles, nil, false)
+	mustContain(t, p1, "Page 1 of 2, 15 roles", `href="/admin/roles?page=2"`, "role-09")
+	mustNotContain(t, p1, "role-10")
+
+	code, p2, _ := do(t, c, http.MethodGet, roles+"?page=2", nil, true)
+	if code != http.StatusOK {
+		t.Fatalf("status %d", code)
+	}
+	mustContain(t, p2, `id="roles-region"`, "Page 2 of 2", "role-10", "role-14")
+	mustNotContain(t, p2, "<html", "role-09", `page=3`)
+
+	t.Run("an action keeps you on your page", func(t *testing.T) {
+		code, body, _ := do(t, c, http.MethodPost, roles, url.Values{"name": {"zzz-new"}, "page": {"2"}}, true)
+		if code != http.StatusOK {
+			t.Fatalf("status %d", code)
+		}
+		mustContain(t, body, "Page 2 of 2", "zzz-new")
+	})
+
+	t.Run("deleting the last role on the last page steps back a page", func(t *testing.T) {
+		// 16 roles now. Drop role-10 to role-14 so zzz-new is alone on page 2.
+		r, err := auth.Repo.RoleGetByName(ctx, "zzz-new")
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i := 10; i <= 14; i++ {
+			rr, _ := auth.Repo.RoleGetByName(ctx, fmt.Sprintf("role-%02d", i))
+			if rr != nil {
+				if err := auth.Service.RoleDelete(ctx, rr.ID); err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
+		// Delete it from page 2: that page no longer exists, so show page 1.
+		code, body, _ := do(t, c, http.MethodPost, roles+"/"+r.ID+"/delete", url.Values{"page": {"2"}}, true)
+		if code != http.StatusOK {
+			t.Fatalf("status %d", code)
+		}
+		mustContain(t, body, "Page 1 of 1")
+	})
+
+	t.Run("rejects a bad page", func(t *testing.T) {
+		for _, qs := range []string{"?page=0", "?page=abc", "?page=999999"} {
+			if code, _, _ := do(t, c, http.MethodGet, roles+qs, nil, false); code != http.StatusBadRequest {
+				t.Errorf("%s: status %d, want 400", qs, code)
+			}
+		}
+	})
+}
+
+func TestPermissions_Pagination(t *testing.T) {
+	auth, srv, c := adminSession(t)
+	ctx := context.Background()
+	for i := 1; i <= 25; i++ {
+		if _, err := auth.PermissionCreate(ctx, fmt.Sprintf("perm.%02d", i), ""); err != nil {
+			t.Fatal(err)
+		}
+	}
+	perms := srv.URL + "/admin/permissions"
+
+	_, p1, _ := do(t, c, http.MethodGet, perms, nil, false)
+	mustContain(t, p1, "Page 1 of 2, 25 permissions", `href="/admin/permissions?page=2"`, "perm.20")
+	mustNotContain(t, p1, "perm.21")
+
+	_, p2, _ := do(t, c, http.MethodGet, perms+"?page=2", nil, true)
+	mustContain(t, p2, `id="permissions-region"`, "perm.21", "perm.25")
+	mustNotContain(t, p2, "<html", "perm.20")
+
+	// Past the end clamps to the last page rather than showing nothing.
+	code, body, _ := do(t, c, http.MethodGet, perms+"?page=9", nil, false)
+	if code != http.StatusOK {
+		t.Fatalf("status %d", code)
+	}
+	mustContain(t, body, "Page 2 of 2", "perm.25")
 }

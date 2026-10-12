@@ -1,6 +1,11 @@
 package views
 
-import "github.com/josuebrunel/ezauth/pkg/db/models"
+import (
+	"fmt"
+	"strconv"
+
+	"github.com/josuebrunel/ezauth/pkg/db/models"
+)
 
 // RoleRow is one role with the permissions it holds and the ones it could
 // still be given.
@@ -12,10 +17,41 @@ type RoleRow struct {
 
 // RolesData is everything the roles page needs.
 type RolesData struct {
-	Rows []RoleRow
+	Rows  []RoleRow
+	Page  int // 1-based
+	Pages int
+	Total int
 	// AdminRole is the role that opens the panel. It can't be deleted from
 	// here, or nobody could get back in.
 	AdminRole string
+}
+
+func (d RolesData) summary() string {
+	if d.Total == 0 {
+		return ""
+	}
+	return fmt.Sprintf("Page %d of %d, %d roles", d.Page, d.Pages, d.Total)
+}
+
+func (d RolesData) prevHref(p Page) string {
+	if d.Page > 1 {
+		return rolesPageURL(p, d.Page-1)
+	}
+	return ""
+}
+
+func (d RolesData) nextHref(p Page) string {
+	if d.Page < d.Pages {
+		return rolesPageURL(p, d.Page+1)
+	}
+	return ""
+}
+
+func rolesPageURL(p Page, page int) string {
+	if page <= 1 {
+		return p.Path("/roles")
+	}
+	return p.Path("/roles") + "?page=" + strconv.Itoa(page)
 }
 
 templ RolesPage(p Page, d RolesData) {
@@ -77,6 +113,7 @@ templ RolesRegion(p Page, d RolesData) {
 							hx-swap="outerHTML"
 							hx-confirm={ "Delete the " + row.Role.Name + " role? Everyone who has it loses it." }
 						>
+							<input type="hidden" name="page" value={ strconv.Itoa(d.Page) }/>
 							<button class="btn btn-sm btn-error btn-outline" type="submit">Delete role</button>
 						</form>
 					}
@@ -97,6 +134,7 @@ templ RolesRegion(p Page, d RolesData) {
 									hx-swap="outerHTML"
 								>
 									<input type="hidden" name="permission" value={ perm.Name }/>
+									<input type="hidden" name="page" value={ strconv.Itoa(d.Page) }/>
 									<button type="submit" class="ml-1 rounded-full size-5 grid place-items-center hover:bg-base-300/60" aria-label={ "Remove " + perm.Name + " from " + row.Role.Name }>
 										@iconClose()
 									</button>
@@ -122,10 +160,12 @@ templ RolesRegion(p Page, d RolesData) {
 								}
 							</select>
 						</label>
+						<input type="hidden" name="page" value={ strconv.Itoa(d.Page) }/>
 						<button class="btn btn-sm sm:btn-md" type="submit">Add permission</button>
 					</form>
 				}
 			</article>
 		}
+		@Pager(d.summary(), d.prevHref(p), d.nextHref(p), "#roles-region")
 	</div>
 }

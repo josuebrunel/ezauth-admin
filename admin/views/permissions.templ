@@ -1,10 +1,46 @@
 package views
 
-import "github.com/josuebrunel/ezauth/pkg/db/models"
+import (
+	"fmt"
+	"strconv"
+
+	"github.com/josuebrunel/ezauth/pkg/db/models"
+)
 
 // PermissionsData is everything the permissions page needs.
 type PermissionsData struct {
 	Perms []*models.Permission
+	Page  int // 1-based
+	Pages int
+	Total int
+}
+
+func (d PermissionsData) summary() string {
+	if d.Total == 0 {
+		return ""
+	}
+	return fmt.Sprintf("Page %d of %d, %d permissions", d.Page, d.Pages, d.Total)
+}
+
+func (d PermissionsData) prevHref(p Page) string {
+	if d.Page > 1 {
+		return permissionsPageURL(p, d.Page-1)
+	}
+	return ""
+}
+
+func (d PermissionsData) nextHref(p Page) string {
+	if d.Page < d.Pages {
+		return permissionsPageURL(p, d.Page+1)
+	}
+	return ""
+}
+
+func permissionsPageURL(p Page, page int) string {
+	if page <= 1 {
+		return p.Path("/permissions")
+	}
+	return p.Path("/permissions") + "?page=" + strconv.Itoa(page)
 }
 
 templ PermissionsPage(p Page, d PermissionsData) {
@@ -66,6 +102,7 @@ templ PermissionsRegion(p Page, d PermissionsData) {
 										hx-swap="outerHTML"
 										hx-confirm={ "Delete " + perm.Name + "? Every role loses it." }
 									>
+										<input type="hidden" name="page" value={ strconv.Itoa(d.Page) }/>
 										<button class="btn btn-sm btn-error btn-outline" type="submit" aria-label={ "Delete " + perm.Name }>Delete</button>
 									</form>
 								</td>
@@ -75,5 +112,6 @@ templ PermissionsRegion(p Page, d PermissionsData) {
 				</table>
 			</div>
 		}
+		@Pager(d.summary(), d.prevHref(p), d.nextHref(p), "#permissions-region")
 	</div>
 }

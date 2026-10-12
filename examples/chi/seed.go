@@ -41,7 +41,7 @@ func seed(ctx context.Context, auth *ezauth.EzAuth, adminEmail, adminPassword st
 	if err != nil {
 		return err
 	}
-	if err := auth.UserRoleGrant(ctx, adminUser.ID, role); err != nil {
+	if err := auth.UserRoleGrant(ctx, "", adminUser.ID, role); err != nil { // "" actor: a system action
 		return fmt.Errorf("grant %s role: %w", role, err)
 	}
 

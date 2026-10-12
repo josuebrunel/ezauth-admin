@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -87,13 +86,9 @@ func (p *Panel) usersList(w http.ResponseWriter, r *http.Request) error {
 	if len([]rune(search)) > maxSearchLength {
 		return NewHTTPError(http.StatusBadRequest, "That search is too long.")
 	}
-	page := 1
-	if raw := q.Get("page"); raw != "" {
-		n, err := strconv.Atoi(raw)
-		if err != nil || n < 1 || n > maxPage {
-			return NewHTTPError(http.StatusBadRequest, "Unknown page.")
-		}
-		page = n
+	page, err := pageParam(r)
+	if err != nil {
+		return err
 	}
 
 	res, err := p.auth.Service.UsersList(r.Context(), service.ListUsersOptions{
@@ -240,8 +235,8 @@ func (p *Panel) userNotes(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	// The user was just loaded in full, so saving it back changes only the
-	// note. (ezauth's update writes every column, so never save a partial user.)
+	// UserUpdate only writes what is set and never the account flags, so
+	// saving the user back changes just the note.
 	user.SetAppMeta(notesKey, notes)
 	if _, err := p.auth.Service.UserUpdate(ctx, user); err != nil {
 		return fmt.Errorf("save notes for user %s: %w", id, err)
@@ -277,7 +272,8 @@ func (p *Panel) roleGrant(w http.ResponseWriter, r *http.Request) error {
 	if !hasRole(roles, role) {
 		return NewHTTPError(http.StatusBadRequest, "That role doesn't exist.")
 	}
-	if err := p.auth.UserRoleGrant(ctx, id, role); err != nil {
+	actor, _ := ezauth.GetUserID(ctx)
+	if err := p.auth.UserRoleGrant(ctx, actor, id, role); err != nil {
 		return fmt.Errorf("grant %s to user %s: %w", role, id, err)
 	}
 	return p.rolesFragment(w, r, id, "Granted "+role+".")
@@ -296,7 +292,8 @@ func (p *Panel) roleRevoke(w http.ResponseWriter, r *http.Request) error {
 	if _, err := p.loadUser(ctx, id); err != nil {
 		return err
 	}
-	if err := p.auth.UserRoleRevoke(ctx, id, role); err != nil {
+	actor, _ := ezauth.GetUserID(ctx)
+	if err := p.auth.UserRoleRevoke(ctx, actor, id, role); err != nil {
 		return fmt.Errorf("revoke %s from user %s: %w", role, id, err)
 	}
 	return p.rolesFragment(w, r, id, "Revoked "+role+".")

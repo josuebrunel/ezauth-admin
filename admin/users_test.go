@@ -265,9 +265,7 @@ func TestUserNotes_DoesNotClobberOtherFields(t *testing.T) {
 	newUser(t, auth, "alice@example.com", "")
 	id := userID(t, auth, "alice@example.com")
 	ctx := context.Background()
-	u := getUser(t, auth, id)
-	u.EmailVerified = true
-	if _, err := auth.Service.UserUpdate(ctx, u); err != nil {
+	if _, err := auth.Repo.UserSetEmailVerified(ctx, id, true); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := auth.Service.UserSuspend(ctx, id); err != nil {
@@ -293,6 +291,9 @@ func TestUserNotes_DoesNotClobberOtherFields(t *testing.T) {
 	}
 	if after.IsActive {
 		t.Error("suspended user became active")
+	}
+	if !after.EmailVerified {
+		t.Error("verified user became unverified")
 	}
 
 	t.Run("note is shown on the page", func(t *testing.T) {

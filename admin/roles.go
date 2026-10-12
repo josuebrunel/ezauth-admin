@@ -19,7 +19,24 @@ import (
 // them to a safe, readable alphabet: invoices.read, billing-admin, org:owner.
 var nameRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{1,49}$`)
 
-const maxDescriptionLength = 200
+const (
+	maxDescriptionLength = 200
+	rolesPageSize        = 10
+	permissionsPageSize  = 20
+)
+
+// pageOf returns the page-th slice of n items (clamped to the last page) and
+// how many pages there are.
+func pageOf(n, page, size int) (from, to, pages, clamped int) {
+	pages = (n + size - 1) / size
+	if pages < 1 {
+		pages = 1
+	}
+	clamped = min(max(page, 1), pages)
+	from = (clamped - 1) * size
+	to = min(from+size, n)
+	return from, to, pages, clamped
+}
 
 // parseNameDescription reads and validates the create form shared by roles
 // and permissions.
@@ -36,10 +53,9 @@ func parseNameDescription(r *http.Request, kind string) (name, description strin
 	return name, description, nil
 }
 
-// rolesData loads every role with its permissions. That's one query per role,
-// which is fine: ezauth keeps roles a small, hand-curated catalog (its own
-// list calls are unpaginated for the same reason).
-func (p *Panel) rolesData(ctx context.Context) (views.RolesData, error) {
+// rolesData loads one page of roles with their permissions. Permissions are
+// only fetched for the roles on the page, one query each.
+func (p *Panel) rolesData(ctx context.Context, page int) (views.RolesData, error) {
 	roles, err := p.auth.Service.RolesList(ctx)
 	if err != nil {
 		return views.RolesData{}, fmt.Errorf("list roles: %w", err)
@@ -51,8 +67,9 @@ func (p *Panel) rolesData(ctx context.Context) (views.RolesData, error) {
 	slices.SortFunc(roles, func(a, b *models.Role) int { return strings.Compare(a.Name, b.Name) })
 	slices.SortFunc(all, func(a, b *models.Permission) int { return strings.Compare(a.Name, b.Name) })
 
-	d := views.RolesData{AdminRole: p.role, Rows: make([]views.RoleRow, 0, len(roles))}
-	for _, role := range roles {
+	from, to, pages, page := pageOf(len(roles), page, rolesPageSize)
+	d := views.RolesData{AdminRole: p.role, Page: page, Pages: pages, Total: len(roles), Rows: make([]views.RoleRow, 0, to-from)}
+	for _, role := range roles[from:to] {
 		held, err := p.auth.Repo.PermissionsByRoleID(ctx, role.ID)
 		if err != nil {
 			return d, fmt.Errorf("list permissions of role %s: %w", role.ID, err)
@@ -74,17 +91,29 @@ func (p *Panel) rolesData(ctx context.Context) (views.RolesData, error) {
 }
 
 func (p *Panel) rolesPage(w http.ResponseWriter, r *http.Request) error {
-	d, err := p.rolesData(r.Context())
+	page, err := pageParam(r)
+	if err != nil {
+		return err
+	}
+	d, err := p.rolesData(r.Context(), page)
 	if err != nil {
 		return err
 	}
 	pg := p.page(r, "roles", views.Crumb{Label: "Dashboard", Href: "/"}, views.Crumb{Label: "Roles"})
+	if isHTMX(r) && r.Method == http.MethodGet {
+		return render(w, r, http.StatusOK, views.RolesRegion(pg, d))
+	}
 	return render(w, r, http.StatusOK, views.RolesPage(pg, d))
 }
 
-// rolesDone answers a successful roles action with the refreshed list.
+// rolesDone answers a successful roles action with the refreshed list, on the
+// page the admin was looking at (the forms post it back as "page").
 func (p *Panel) rolesDone(w http.ResponseWriter, r *http.Request, message string) error {
-	d, err := p.rolesData(r.Context())
+	page, err := pageParam(r)
+	if err != nil {
+		return err
+	}
+	d, err := p.rolesData(r.Context(), page)
 	if err != nil {
 		return err
 	}
@@ -166,26 +195,38 @@ func (p *Panel) rolePermission(grant bool) handlerFunc {
 	}
 }
 
-func (p *Panel) permissionsData(ctx context.Context) (views.PermissionsData, error) {
+func (p *Panel) permissionsData(ctx context.Context, page int) (views.PermissionsData, error) {
 	perms, err := p.auth.Service.PermissionsList(ctx)
 	if err != nil {
 		return views.PermissionsData{}, fmt.Errorf("list permissions: %w", err)
 	}
 	slices.SortFunc(perms, func(a, b *models.Permission) int { return strings.Compare(a.Name, b.Name) })
-	return views.PermissionsData{Perms: perms}, nil
+	from, to, pages, page := pageOf(len(perms), page, permissionsPageSize)
+	return views.PermissionsData{Perms: perms[from:to], Page: page, Pages: pages, Total: len(perms)}, nil
 }
 
 func (p *Panel) permissionsPage(w http.ResponseWriter, r *http.Request) error {
-	d, err := p.permissionsData(r.Context())
+	page, err := pageParam(r)
+	if err != nil {
+		return err
+	}
+	d, err := p.permissionsData(r.Context(), page)
 	if err != nil {
 		return err
 	}
 	pg := p.page(r, "permissions", views.Crumb{Label: "Dashboard", Href: "/"}, views.Crumb{Label: "Permissions"})
+	if isHTMX(r) && r.Method == http.MethodGet {
+		return render(w, r, http.StatusOK, views.PermissionsRegion(pg, d))
+	}
 	return render(w, r, http.StatusOK, views.PermissionsPage(pg, d))
 }
 
 func (p *Panel) permissionsDone(w http.ResponseWriter, r *http.Request, message string) error {
-	d, err := p.permissionsData(r.Context())
+	page, err := pageParam(r)
+	if err != nil {
+		return err
+	}
+	d, err := p.permissionsData(r.Context(), page)
 	if err != nil {
 		return err
 	}

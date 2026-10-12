@@ -1,0 +1,22 @@
+package views
+
+// Pager is the Previous and Next buttons under a list. An empty href means
+// there is nothing in that direction, so the button is shown disabled. Links
+// work without JavaScript, and with HTMX they swap just the list in target.
+templ Pager(summary string, prevHref, nextHref, target string) {
+	<div class="flex items-center justify-between mt-4">
+		<p class="text-sm muted">{ summary }</p>
+		<div class="join" role="navigation" aria-label="Pagination">
+			@pagerButton("Previous", prevHref, target)
+			@pagerButton("Next", nextHref, target)
+		</div>
+	</div>
+}
+
+templ pagerButton(label, href, target string) {
+	if href != "" {
+		<a class="btn btn-sm join-item" href={ templ.URL(href) } hx-get={ href } hx-target={ target } hx-swap="outerHTML" hx-push-url="true">{ label }</a>
+	} else {
+		<span class="btn btn-sm join-item btn-disabled" aria-disabled="true">{ label }</span>
+	}
+}

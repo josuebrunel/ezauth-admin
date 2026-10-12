@@ -1,11 +1,140 @@
 package views
 
-templ Dashboard(p Page) {
+import (
+	"encoding/json"
+	"strconv"
+	"time"
+)
+
+// DayCount is how many people joined on one day.
+type DayCount struct {
+	Label string // like "12 Oct"
+	Count int
+}
+
+// DashboardData is everything the dashboard needs.
+type DashboardData struct {
+	Total      int
+	NewWeek    int
+	ActiveWeek int
+	Inactive   int
+	Signups    []DayCount
+	Recent     []AuditEntry
+	Now        time.Time
+	FirstName  string
+}
+
+// chartJSON encodes a value as a JSON string for a data attribute.
+func chartJSON(v any) string {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return "[]"
+	}
+	return string(b)
+}
+
+func (d DashboardData) labels() []string {
+	out := make([]string, len(d.Signups))
+	for i, s := range d.Signups {
+		out[i] = s.Label
+	}
+	return out
+}
+
+func (d DashboardData) counts() []int {
+	out := make([]int, len(d.Signups))
+	for i, s := range d.Signups {
+		out[i] = s.Count
+	}
+	return out
+}
+
+func (d DashboardData) signupSummary() string {
+	total := 0
+	for _, s := range d.Signups {
+		total += s.Count
+	}
+	return "Sign-ups per day over the last " + strconv.Itoa(len(d.Signups)) + " days, " + strconv.Itoa(total) + " in total."
+}
+
+type stat struct {
+	Label string
+	Value int
+	Hint  string
+}
+
+func (d DashboardData) stats() []stat {
+	return []stat{
+		{"Total users", d.Total, "All accounts"},
+		{"Active this week", d.ActiveWeek, "Seen in the last 7 days"},
+		{"New this week", d.NewWeek, "Joined in the last 7 days"},
+		{"Can't sign in", d.Inactive, "Suspended or locked out"},
+	}
+}
+
+templ Dashboard(p Page, d DashboardData) {
 	@Layout(p, "Dashboard") {
-		<h1 class="text-2xl md:text-3xl font-bold">Welcome back</h1>
-		<p class="mt-2 muted">You're signed in to the { p.AppName } admin panel.</p>
-		<p class="mt-6">
-			<a href={ p.URL("/users") } class="btn btn-primary">Browse users</a>
-		</p>
+		<h1 class="text-2xl md:text-3xl font-bold">
+			if d.FirstName != "" {
+				Welcome back, { d.FirstName }
+			} else {
+				Welcome back
+			}
+		</h1>
+		<p class="muted mt-1">Here's what's happening in { p.AppName } this week.</p>
+		<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mt-6">
+			for _, s := range d.stats() {
+				<article class="surface p-4 md:p-5">
+					<h2 class="text-sm font-medium muted">{ s.Label }</h2>
+					<p class="stat-value mt-2">{ strconv.Itoa(s.Value) }</p>
+					<p class="text-xs muted mt-1">{ s.Hint }</p>
+				</article>
+			}
+		</div>
+		<div class="grid lg:grid-cols-3 gap-4 mt-4">
+			<article class="surface p-5 lg:col-span-2" aria-labelledby="h-signups">
+				<div class="flex items-baseline justify-between">
+					<h2 id="h-signups" class="text-lg font-semibold">New sign-ups</h2>
+					<span class="text-sm muted">Last { strconv.Itoa(len(d.Signups)) } days</span>
+				</div>
+				<div class="mt-4 h-56">
+					<canvas
+						data-chart="signups"
+						data-labels={ chartJSON(d.labels()) }
+						data-values={ chartJSON(d.counts()) }
+						role="img"
+						aria-label={ d.signupSummary() }
+					>
+						<table class="sr-only">
+							<caption>{ d.signupSummary() }</caption>
+							<tbody>
+								for _, s := range d.Signups {
+									<tr><th scope="row">{ s.Label }</th><td>{ strconv.Itoa(s.Count) }</td></tr>
+								}
+							</tbody>
+						</table>
+					</canvas>
+				</div>
+			</article>
+			<article class="surface p-5" aria-labelledby="h-recent">
+				<h2 id="h-recent" class="text-lg font-semibold">Recent activity</h2>
+				if len(d.Recent) == 0 {
+					<p class="muted text-sm mt-3">No events yet.</p>
+				} else {
+					<ul class="mt-3 space-y-3">
+						for _, e := range d.Recent {
+							<li class="text-sm">
+								<span class="block font-medium">{ e.EventType }</span>
+								<span class="muted text-xs">
+									{{ name, _ := e.Who() }}
+									{ name } · { relTime(&e.At, d.Now) }
+								</span>
+							</li>
+						}
+					</ul>
+				}
+				<a href={ p.URL("/audit") } class="link link-primary text-sm mt-4 inline-block font-medium">See the audit log</a>
+			</article>
+		</div>
 	}
 }

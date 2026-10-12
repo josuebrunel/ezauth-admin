@@ -1,0 +1,221 @@
+package views
+
+import (
+	"fmt"
+	"net/url"
+	"sort"
+	"strconv"
+	"time"
+)
+
+// AuditDetail is one key/value pair from an event's metadata.
+type AuditDetail struct{ Key, Value string }
+
+// SortedDetails flattens metadata into pairs sorted by key, so the same event
+// always reads the same way. Long values are cut so a row stays one glance.
+func SortedDetails(meta map[string]any) []AuditDetail {
+	keys := make([]string, 0, len(meta))
+	for k := range meta {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	out := make([]AuditDetail, 0, len(keys))
+	for _, k := range keys {
+		v := fmt.Sprint(meta[k])
+		if r := []rune(v); len(r) > 80 {
+			v = string(r[:80]) + "…"
+		}
+		out = append(out, AuditDetail{Key: k, Value: v})
+	}
+	return out
+}
+
+// AuditEntry is one event in the audit log.
+type AuditEntry struct {
+	ID        string
+	UserID    string // empty once the account is deleted
+	UserEmail string // from the user row, empty once the account is deleted
+	EventType string
+	Details   []AuditDetail
+	At        time.Time
+}
+
+// Who names the account an event is about. After a deletion the user row is
+// gone, so the email saved in the event's own details is used instead.
+func (e AuditEntry) Who() (name string, deleted bool) {
+	if e.UserEmail != "" {
+		return e.UserEmail, false
+	}
+	for _, d := range e.Details {
+		if d.Key == "email" && d.Value != "" {
+			return d.Value, true
+		}
+	}
+	return "Deleted account", true
+}
+
+// AuditData is everything the audit log page needs.
+type AuditData struct {
+	Entries   []AuditEntry
+	EventType string
+	Types     []string
+	Page      int
+	PageSize  int
+	HasMore   bool
+	Now       time.Time
+}
+
+func (d AuditData) pageURL(p Page, page int) string {
+	q := url.Values{}
+	if d.EventType != "" {
+		q.Set("event", d.EventType)
+	}
+	if page > 1 {
+		q.Set("page", strconv.Itoa(page))
+	}
+	if enc := q.Encode(); enc != "" {
+		return p.Path("/audit") + "?" + enc
+	}
+	return p.Path("/audit")
+}
+
+func (d AuditData) prevHref(p Page) string {
+	if d.Page > 1 {
+		return d.pageURL(p, d.Page-1)
+	}
+	return ""
+}
+
+func (d AuditData) nextHref(p Page) string {
+	if d.HasMore {
+		return d.pageURL(p, d.Page+1)
+	}
+	return ""
+}
+
+func (d AuditData) rangeText() string {
+	if len(d.Entries) == 0 {
+		return ""
+	}
+	from := (d.Page-1)*d.PageSize + 1
+	return fmt.Sprintf("Showing %d to %d", from, from+len(d.Entries)-1)
+}
+
+// eventClass colours the events an admin should notice.
+func eventClass(t string) string {
+	switch t {
+	case "login.failed", "account.locked", "user.deleted", "role.revoked", "mfa.disabled":
+		return "chip-bad"
+	case "impersonation.started", "impersonation.ended", "role.granted":
+		return "chip-warn"
+	default:
+		return "chip-role"
+	}
+}
+
+templ AuditPage(p Page, d AuditData) {
+	@Layout(p, "Audit log") {
+		<h1 class="text-2xl md:text-3xl font-bold">Audit log</h1>
+		<p class="muted mt-1">Sign-ins, role changes, impersonation and other security events, newest first.</p>
+		<form
+			id="audit-filters"
+			class="surface mt-5 p-3 md:p-4"
+			method="get"
+			action={ p.URL("/audit") }
+			hx-get={ p.Path("/audit") }
+			hx-target="#audit-results"
+			hx-swap="outerHTML"
+			hx-push-url="true"
+			hx-trigger="change, submit"
+		>
+			<label class="select w-full md:w-72">
+				<span class="sr-only">Filter by event</span>
+				<select name="event">
+					<option value="">All events</option>
+					for _, t := range d.Types {
+						<option value={ t } selected?={ t == d.EventType }>{ t }</option>
+					}
+				</select>
+			</label>
+		</form>
+		@AuditResults(p, d)
+	}
+}
+
+// AuditResults is the swappable part: the rows and the pager.
+templ AuditResults(p Page, d AuditData) {
+	<div id="audit-results" class="mt-4">
+		if len(d.Entries) == 0 {
+			<div class="surface p-8 text-center">
+				<strong class="block text-lg font-display">Nothing here yet</strong>
+				<span class="muted">Events show up as people sign in and admins make changes.</span>
+			</div>
+		} else {
+			<ul class="md:hidden space-y-3">
+				for _, e := range d.Entries {
+					<li class="surface p-4">
+						<div class="flex items-center justify-between gap-2">
+							<span class={ "chip", eventClass(e.EventType) }>{ e.EventType }</span>
+							<time class="text-xs muted" datetime={ e.At.Format(time.RFC3339) }>{ fmtDateTime(e.At) }</time>
+						</div>
+						<p class="mt-2 text-sm">
+							@auditWho(p, e)
+						</p>
+						@auditDetails(e)
+					</li>
+				}
+			</ul>
+			<div class="hidden md:block surface overflow-x-auto">
+				<table class="table">
+					<thead>
+						<tr>
+							<th scope="col">When</th>
+							<th scope="col">Event</th>
+							<th scope="col">Account</th>
+							<th scope="col">Details</th>
+						</tr>
+					</thead>
+					<tbody>
+						for _, e := range d.Entries {
+							<tr>
+								<td class="whitespace-nowrap text-sm muted"><time datetime={ e.At.Format(time.RFC3339) }>{ fmtDateTime(e.At) }</time></td>
+								<td><span class={ "chip", eventClass(e.EventType) }>{ e.EventType }</span></td>
+								<td class="text-sm">
+									@auditWho(p, e)
+								</td>
+								<td>
+									@auditDetails(e)
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		}
+		@Pager(d.rangeText(), d.prevHref(p), d.nextHref(p), "#audit-results")
+	</div>
+}
+
+templ auditWho(p Page, e AuditEntry) {
+	{{ name, deleted := e.Who() }}
+	if e.UserID != "" && !deleted {
+		<a class="link" href={ p.URL("/users/" + e.UserID) }>{ name }</a>
+	} else if deleted {
+		<span>{ name } <span class="muted">(deleted)</span></span>
+	} else {
+		<span>{ name }</span>
+	}
+}
+
+templ auditDetails(e AuditEntry) {
+	if len(e.Details) > 0 {
+		<dl class="flex flex-wrap gap-x-4 gap-y-1 text-xs mt-1">
+			for _, d := range e.Details {
+				<div class="flex gap-1">
+					<dt class="muted">{ d.Key }</dt>
+					<dd class="break-all">{ d.Value }</dd>
+				</div>
+			}
+		</dl>
+	}
+}

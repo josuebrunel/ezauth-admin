@@ -6,7 +6,7 @@ If you use EzAuth as a library, you'll build an admin panel at some point. Every
 
 So I built it once. Mount it, log in as an admin, get on with your product.
 
-> **Status:** early. Users, roles and permissions are done. The audit log and the dashboard are next, tracked in [the issues](https://github.com/josuebrunel/ezauth-admin/issues). Nothing is released yet.
+> **Status:** early. The panel is feature complete for a first release: dashboard, users, roles, permissions and the audit log. Docs and a Docker example are the last pieces, tracked in [the issues](https://github.com/josuebrunel/ezauth-admin/issues). Needs EzAuth v0.31.0 or newer. Nothing is released yet.
 
 ## Quick start
 
@@ -30,8 +30,8 @@ It's a plain `http.Handler`, so it isn't tied to chi. But chi is what I build an
 
 - **Users:** search, filter by status, paginate, see a profile, suspend, reactivate, edit the profile, delete (with a typed-email confirmation), grant and revoke roles, keep admin-only notes, impersonate.
 - **Roles and permissions:** create and delete them, give permissions to roles, give roles to users. The role that opens the panel can't be deleted.
-- **Audit log:** who did what, and when.
-- **Dashboard:** user counts, recent sign-ups, recent activity.
+- **Audit log:** sign-ins, role changes, impersonation and deletions across all users, filterable by event and paged.
+- **Dashboard:** user counts, a 14-day sign-ups chart and the latest activity. The counts are cached for 30 seconds.
 
 Simple on purpose. Server-rendered pages, a little HTMX, no JavaScript build step, and assets embedded in the binary.
 
@@ -39,7 +39,7 @@ Simple on purpose. Server-rendered pages, a little HTMX, no JavaScript build ste
 
 EzAuth's `service.Auth` methods don't check who's calling. The panel does. Every route is deny by default and sits behind your EzAuth session and the admin role (`admin` unless you change it with `admin.WithRole`). State-changing requests are protected against CSRF.
 
-You can't suspend, delete or impersonate your own account, or revoke your own admin role, so there's always an admin left. Deleting a user runs your `BeforeUserDeleted` and `AfterUserDeleted` hooks, and the panel logs who did it. EzAuth deletes a user's audit rows along with the user, so the log line is the only record.
+You can't suspend, delete or impersonate your own account, or revoke your own admin role, so there's always an admin left. Deleting a user runs your `BeforeUserDeleted` and `AfterUserDeleted` hooks, and the deletion lands in the audit log with the user's email. The panel also logs who did it.
 
 Still, it's an admin panel. Put it behind HTTPS, and think twice before exposing it to the whole internet.
 
@@ -63,6 +63,6 @@ make css           # only if you change the styles
 
 MIT, same as EzAuth.
 
-**What works:** mounting, the default-deny guard, light and dark themes, users, roles and permissions.
+**What works:** everything above.
 
-**What doesn't (yet):** the audit log and the dashboard. Follow along in the issues.
+**What doesn't (yet):** a Docker example and a full mounting guide. Both are coming. Follow along in the issues.

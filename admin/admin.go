@@ -16,15 +16,21 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	csrf "filippo.io/csrf/gorilla"
 	"github.com/josuebrunel/ezauth"
+	"github.com/josuebrunel/ezauth/pkg/db/models"
+
 	"github.com/josuebrunel/ezauth-admin/admin/views"
 )
 
 const (
 	defaultBasePath = "/admin"
 	defaultAppName  = "EzAuth"
+
+	// defaultDashboardCache is how long the dashboard numbers are reused.
+	defaultDashboardCache = 30 * time.Second
 )
 
 // Panel is the admin panel. Create one with New and mount Handler().
@@ -33,6 +39,7 @@ type Panel struct {
 	basePath string
 	role     string
 	appName  string
+	counts   countsCache
 }
 
 // New returns a Panel running on top of the given EzAuth instance.
@@ -45,6 +52,7 @@ func New(auth *ezauth.EzAuth, opts ...Option) (*Panel, error) {
 		basePath: defaultBasePath,
 		role:     auth.Config.AdminRole,
 		appName:  defaultAppName,
+		counts:   countsCache{ttl: defaultDashboardCache},
 	}
 	for _, opt := range opts {
 		opt(p)
@@ -74,6 +82,7 @@ func (p *Panel) Handler() http.Handler {
 	mux.Handle("POST /users/{id}/notes", p.handle(p.userNotes))
 	mux.Handle("POST /users/{id}/roles/grant", p.handle(p.roleGrant))
 	mux.Handle("POST /users/{id}/roles/revoke", p.handle(p.roleRevoke))
+	mux.Handle("GET /audit", p.handle(p.auditPage))
 	mux.Handle("GET /roles", p.handle(p.rolesPage))
 	mux.Handle("POST /roles", p.handle(p.roleCreate))
 	mux.Handle("POST /roles/{id}/delete", p.handle(p.roleDelete))
@@ -140,7 +149,7 @@ func (p *Panel) guard(next http.Handler) http.Handler {
 
 // page builds the data every full page needs.
 func (p *Panel) page(r *http.Request, active string, crumbs ...views.Crumb) views.Page {
-	user, _ := ezauth.GetUser(r.Context())
+	user, _ := currentUser(r)
 	return views.Page{
 		AppName:  p.appName,
 		BasePath: p.basePath,
@@ -151,7 +160,7 @@ func (p *Panel) page(r *http.Request, active string, crumbs ...views.Crumb) view
 	}
 }
 
-func (p *Panel) dashboard(w http.ResponseWriter, r *http.Request) error {
-	pg := p.page(r, "dashboard", views.Crumb{Label: "Dashboard"})
-	return render(w, r, http.StatusOK, views.Dashboard(pg))
+// currentUser returns the signed-in user, if any.
+func currentUser(r *http.Request) (*models.User, error) {
+	return ezauth.GetUser(r.Context())
 }
