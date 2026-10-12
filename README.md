@@ -6,6 +6,13 @@ Users, roles, permissions, an audit log and a dashboard, running on your existin
 
 **Live demo: <https://ezauth-admin.onrender.com/admin/>**, sign in as `admin@example.com` with `demo-admin-password`.
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/dashboard-dark.png">
+    <img src="docs/images/dashboard.png" alt="The EzAuth Admin dashboard: user counts, a sign-ups chart and the latest activity" width="900">
+  </picture>
+</p>
+
 [Quick start](#quick-start) · [Try the demo](#try-the-demo) · [What you get](#what-you-get) · [Options](#options) · [Security](#security) · [Mounting guide](docs/mounting.md)
 
 > **Status:** early, but complete: everything below works. Needs EzAuth v0.31.0 or newer.
@@ -142,6 +149,14 @@ These passwords are for the demo only. Use your own, and your own `EZAUTH_*` sec
 | **Audit log** | Read sign-ins, role changes, impersonation and deletions across all users, filtered by event. |
 
 Light and dark themes, works on a phone, and nothing to build: it's server-rendered, with a little HTMX, and every asset is embedded in the package.
+
+### Screenshots
+
+| Users | A user | Audit log |
+|---|---|---|
+| [![The users list, with search and status filters](docs/images/users.png)](docs/images/users.png) | [![A user's page, with profile, roles and admin notes](docs/images/user-detail.png)](docs/images/user-detail.png) | [![The audit log, filtered by event](docs/images/audit-log.png)](docs/images/audit-log.png) |
+
+Click one to see it full size. The dashboard is at the top, and it follows your dark or light setting on GitHub.
 
 ## Options
 
