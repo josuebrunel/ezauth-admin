@@ -6,7 +6,7 @@ Users, roles, permissions, an audit log and a dashboard, running on your existin
 
 [Quick start](#quick-start) · [Try the demo](#try-the-demo) · [What you get](#what-you-get) · [Options](#options) · [Security](#security) · [Mounting guide](docs/mounting.md)
 
-> **Status:** early, but complete. Everything below works. A first tagged release is next. Needs EzAuth v0.31.0 or newer.
+> **Status:** v0.1.0. Early, but complete: everything below works. Needs EzAuth v0.31.0 or newer.
 
 If you use EzAuth as a library, you'll build an admin panel at some point. Everyone does. It's never the interesting part of your app, and it always takes longer than you think. So I built it once.
 
