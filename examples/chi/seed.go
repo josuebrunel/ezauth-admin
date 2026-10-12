@@ -26,9 +26,10 @@ var demoUsers = []demoUser{
 // are only ever logged once, at creation. This is a demo convenience, not a
 // pattern for a real deployment.
 //
-// If adminPassword is set, the admin account gets that password instead of a
-// random one, which makes local development repeatable.
-func seed(ctx context.Context, auth *ezauth.EzAuth, adminEmail, adminPassword string) error {
+// If adminPassword or demoPassword is set, the admin account or the demo users
+// get that password instead of a random one, which makes local development and
+// the Docker demo repeatable.
+func seed(ctx context.Context, auth *ezauth.EzAuth, adminEmail, adminPassword, demoPassword string) error {
 	role := auth.Config.AdminRole
 
 	if _, err := auth.Repo.RoleGetByName(ctx, role); err != nil {
@@ -46,7 +47,7 @@ func seed(ctx context.Context, auth *ezauth.EzAuth, adminEmail, adminPassword st
 	}
 
 	for _, du := range demoUsers {
-		if _, err := ensureUser(ctx, auth, du, ""); err != nil {
+		if _, err := ensureUser(ctx, auth, du, demoPassword); err != nil {
 			return err
 		}
 	}

@@ -1,7 +1,32 @@
-# Local dependencies for development. The example app (examples/chi) runs on
-# SQLite by default; use this Postgres to try the panel against another dialect.
+# `docker compose up --build` runs the example app (the panel mounted in a small
+# chi app, on SQLite) with an admin and four demo users already created.
+#
+# The passwords below are for trying it out on your own machine only. Change
+# them, and the EZAUTH_* secrets, before putting anything like this on a server.
 services:
+  app:
+    build:
+      context: .
+      dockerfile: examples/chi/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      APP_ADDR: ":8080"
+      APP_ADMIN_EMAIL: admin@example.com
+      APP_ADMIN_PASSWORD: ${APP_ADMIN_PASSWORD:-demo-admin-password}
+      APP_DEMO_PASSWORD: ${APP_DEMO_PASSWORD:-demo-user-password}
+      EZAUTH_API_KEY: ${EZAUTH_API_KEY:-demo-api-key-change-me}
+      EZAUTH_JWT_SECRET: ${EZAUTH_JWT_SECRET:-demo-jwt-secret-change-me-at-least-32-chars}
+      EZAUTH_DB_DIALECT: sqlite
+      EZAUTH_DB_DSN: file:data/ezauth.db
+    volumes:
+      - app-data:/app/data
+    restart: unless-stopped
+
+  # Optional: try the panel against Postgres instead of SQLite.
+  #   docker compose --profile postgres up -d postgres
   postgres:
+    profiles: ["postgres"]
     image: postgres:17-alpine
     environment:
       POSTGRES_USER: ezauth
@@ -18,4 +43,5 @@ services:
       retries: 10
 
 volumes:
+  app-data:
   pgdata:

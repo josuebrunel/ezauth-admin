@@ -6,7 +6,7 @@ If you use EzAuth as a library, you'll build an admin panel at some point. Every
 
 So I built it once. Mount it, log in as an admin, get on with your product.
 
-> **Status:** early. The panel is feature complete for a first release: dashboard, users, roles, permissions and the audit log. Docs and a Docker example are the last pieces, tracked in [the issues](https://github.com/josuebrunel/ezauth-admin/issues). Needs EzAuth v0.31.0 or newer. Nothing is released yet.
+> **Status:** early. The panel is feature complete for a first release: dashboard, users, roles, permissions and the audit log. The mounting guide is the last piece, tracked in [the issues](https://github.com/josuebrunel/ezauth-admin/issues). Needs EzAuth v0.31.0 or newer. Nothing is released yet.
 
 ## Quick start
 
@@ -49,13 +49,29 @@ Go, [Templ](https://templ.guide), [HTMX](https://htmx.org), and [DaisyUI](https:
 
 ## Try it
 
-`make run-example` starts a small chi app with a seeded admin and a few demo users. Their passwords are logged once, on first start. The example lives in [`examples/chi`](examples/chi).
+The quickest way is Docker. It runs a small example app with the panel mounted, on SQLite, with an admin and four demo users already created:
+
+```sh
+docker compose up --build
+```
+
+Then open <http://localhost:8080> and sign in:
+
+| Who | Email | Password |
+|---|---|---|
+| Admin | `admin@example.com` | `demo-admin-password` |
+| Demo users | `alice@`, `bob@`, `carol@`, `dave@example.com` | `demo-user-password` |
+
+Sign in as alice and open `/admin/` to see what a non-admin gets: a 403. Those passwords are for your own machine only. Change them (and the `EZAUTH_*` secrets) in `docker-compose.yml` before putting anything like this on a server.
+
+No Docker? `make run-example` does the same with `go run`. It creates the same users and logs their random passwords once. The example lives in [`examples/chi`](examples/chi).
 
 ## Develop
 
 ```sh
 make test
 make run-example   # chi + SQLite, http://localhost:8080/admin/
+make docker-up     # the same, in Docker
 make css           # only if you change the styles
 ```
 
@@ -65,4 +81,4 @@ MIT, same as EzAuth.
 
 **What works:** everything above.
 
-**What doesn't (yet):** a Docker example and a full mounting guide. Both are coming. Follow along in the issues.
+**What doesn't (yet):** a full mounting guide. It's coming. Follow along in the issues.

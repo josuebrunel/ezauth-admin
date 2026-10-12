@@ -41,8 +41,10 @@ run-example:
 tidy:
 	go mod tidy
 
+# The example app on SQLite, with an admin and demo users: http://localhost:8080
 docker-up:
-	docker compose up -d
+	docker compose up --build -d
+	@echo "Open http://localhost:8080  (admin@example.com / demo-admin-password)"
 
 docker-down:
 	docker compose down
