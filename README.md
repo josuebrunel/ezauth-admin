@@ -43,13 +43,18 @@ Still, it's an admin panel. Put it behind HTTPS, and think twice before exposing
 
 ## Stack
 
-Go, [Templ](https://templ.guide), [HTMX](https://htmx.org), and [DaisyUI](https://daisyui.com) for styling. You don't need any of them installed to use the panel, the compiled templates and assets ship with the package.
+Go, [Templ](https://templ.guide), [HTMX](https://htmx.org), and [DaisyUI](https://daisyui.com) for styling. You don't need any of them installed to use the panel, the compiled templates and assets ship with the package. Changing the styles needs no Node either: `make css` downloads Tailwind's standalone binary.
+
+## Try it
+
+`make run-example` starts a small chi app with a seeded admin and a few demo users. Their passwords are logged once, on first start. The example lives in [`examples/chi`](examples/chi).
 
 ## Develop
 
 ```sh
 make test
-make css    # only if you change the styles
+make run-example   # chi + SQLite, http://localhost:8080/admin/
+make css           # only if you change the styles
 ```
 
 ## License

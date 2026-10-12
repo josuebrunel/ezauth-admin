@@ -1,6 +1,7 @@
+admin/styles/daisyui.mjs
+admin/styles/daisyui-theme.mjs
 bin/
-*.db
-.env
-.DS_Store
 coverage.txt
-node_modules/
+*.db
+.DS_Store
+.env
