@@ -69,8 +69,9 @@ func New(auth *ezauth.EzAuth, opts ...Option) (*Panel, error) {
 // when present, so chi's Mount, Echo's WrapHandler and http.StripPrefix all
 // work.
 func (p *Panel) Handler() http.Handler {
+	static := http.StripPrefix("/static/", http.FileServerFS(staticSub()))
 	mux := http.NewServeMux()
-	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(staticSub())))
+	mux.Handle("GET /static/", static)
 	mux.Handle("GET /{$}", p.handle(p.dashboard))
 	mux.Handle("GET /users", p.handle(p.usersList))
 	mux.Handle("GET /users/{id}", p.handle(p.userDetail))
@@ -96,7 +97,7 @@ func (p *Panel) Handler() http.Handler {
 		return NewHTTPError(http.StatusNotFound, "That page doesn't exist.")
 	}))
 
-	guarded := p.guard(mux)
+	guarded := p.guard(mux, static)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		r2 := r.Clone(r.Context())
 		r2.URL.Path = p.stripBase(r.URL.Path)
@@ -125,23 +126,15 @@ func (p *Panel) stripBase(path string) string {
 // state-changing methods (safe methods always pass).
 //
 // While an admin impersonates someone, the session user is the target, who is
-// normally not an admin. The panel stays closed to them, except for a page
-// that explains why and a button to stop impersonating.
-func (p *Panel) guard(next http.Handler) http.Handler {
+// normally not an admin, so the panel stays closed. See impersonating for what
+// that session can still reach.
+func (p *Panel) guard(next, static http.Handler) http.Handler {
 	protected := csrf.Protect(nil)(p.auth.RequireRole(p.role)(next))
 	stop := csrf.Protect(nil)(http.HandlerFunc(p.auth.Handler.FormStopImpersonation))
 
 	guarded := p.auth.LoginRequiredMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if _, impersonating := ezauth.CurrentImpersonatorID(r.Context()); impersonating {
-			if r.Method == http.MethodPost && r.URL.Path == "/impersonate/stop" {
-				stop.ServeHTTP(w, r)
-				return
-			}
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			w.WriteHeader(http.StatusForbidden)
-			if err := views.ImpersonatingPage(p.page(r, "")).Render(r.Context(), w); err != nil {
-				slog.ErrorContext(r.Context(), "admin impersonating page render failed", "err", err)
-			}
+		if actorID, impersonating := ezauth.CurrentImpersonatorID(r.Context()); impersonating {
+			p.impersonating(w, r, actorID, static, stop)
 			return
 		}
 		protected.ServeHTTP(w, r)
@@ -165,6 +158,67 @@ func (p *Panel) guard(next http.Handler) http.Handler {
 		}()
 		guarded.ServeHTTP(w, r)
 	})
+}
+
+// impersonating answers every request made while an admin is impersonating
+// someone. Only four things are reachable:
+//
+//   - the panel's own stylesheet, scripts and fonts, because the page below is
+//     unusable without them (they hold nothing private);
+//   - POST /impersonate/stop, the way back;
+//   - GET /, the impersonated user's own profile;
+//   - anything else that only reads is sent to that profile.
+//
+// Anything that changes something is refused.
+func (p *Panel) impersonating(w http.ResponseWriter, r *http.Request, actorID string, static, stop http.Handler) {
+	reads := r.Method == http.MethodGet || r.Method == http.MethodHead
+	path := r.URL.Path
+	switch {
+	case r.Method == http.MethodPost && path == "/impersonate/stop":
+		stop.ServeHTTP(w, r)
+	case reads && strings.HasPrefix(path, "/static/"):
+		static.ServeHTTP(w, r)
+	case reads && path == "/":
+		if err := p.impersonationProfile(w, r, actorID); err != nil {
+			p.renderError(w, r, err)
+		}
+	case reads:
+		http.Redirect(w, r, p.basePath+"/", http.StatusSeeOther)
+	default:
+		p.renderError(w, r, NewHTTPError(http.StatusForbidden,
+			"You can't change anything while you're impersonating. Stop impersonating first."))
+	}
+}
+
+// impersonationProfile renders the impersonated user's own profile. It returns
+// an error for renderError to show, or nil once the page has been written.
+func (p *Panel) impersonationProfile(w http.ResponseWriter, r *http.Request, actorID string) error {
+	ctx := r.Context()
+	user, err := currentUser(r)
+	if err != nil || user == nil {
+		return NewHTTPError(http.StatusForbidden, "You're not signed in.")
+	}
+
+	admin := "an admin"
+	if a, err := p.auth.Repo.UserGetByID(ctx, actorID); err == nil && a.Email != "" {
+		admin = a.Email
+	}
+	var roles []string
+	if rs, err := p.auth.UserRolesList(ctx, user.ID); err != nil {
+		slog.WarnContext(ctx, "admin: could not list the impersonated user's roles", "user_id", user.ID, "err", err)
+	} else {
+		for _, role := range rs {
+			roles = append(roles, role.Name)
+		}
+	}
+
+	w.Header().Set("Cache-Control", "no-store")
+	if err := render(w, r, http.StatusOK, views.ImpersonationPage(p.page(r, ""), views.ImpersonationData{
+		User: user, Admin: admin, Roles: roles, Now: time.Now(),
+	})); err != nil {
+		return fmt.Errorf("render the impersonation page: %w", err)
+	}
+	return nil
 }
 
 // page builds the data every full page needs.

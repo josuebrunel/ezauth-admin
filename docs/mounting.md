@@ -101,8 +101,10 @@ the role to others from a user's page.
 - An admin can't suspend, delete or impersonate their own account, or revoke their
   own admin role, so there is always an admin left.
 - Impersonating redirects to `EZAUTH_REDIRECT_AFTER_LOGIN`. While impersonating,
-  the panel is closed to the session (the user being impersonated isn't an admin)
-  and shows a page with a button to stop.
+  the panel is closed to the session, because the user being impersonated isn't an
+  admin. Visiting `/admin/` shows that user's own profile with a banner and a
+  button to stop impersonating, and any other page sends you back there. Nothing
+  can be changed from an impersonated session.
 
 ## Behind a proxy
 

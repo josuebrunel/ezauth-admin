@@ -368,8 +368,20 @@ func TestUserRoles(t *testing.T) {
 
 func TestImpersonation(t *testing.T) {
 	auth, srv, c := adminSession(t)
-	newUser(t, auth, "alice@example.com", "")
-	id := userID(t, auth, "alice@example.com")
+	ctx := context.Background()
+	if _, err := auth.RoleCreate(ctx, "support", ""); err != nil {
+		t.Fatal(err)
+	}
+	newUser(t, auth, "alice@example.com", "support")
+	u, err := auth.Repo.UserGetByEmail(ctx, "alice@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	u.FirstName, u.LastName = "Alice", "Martin"
+	if _, err := auth.Service.UserUpdate(ctx, u); err != nil {
+		t.Fatal(err)
+	}
+	id := u.ID
 
 	t.Run("can't impersonate yourself", func(t *testing.T) {
 		code, _, _ := do(t, c, http.MethodPost, srv.URL+"/admin/users/"+userID(t, auth, "admin@example.com")+"/impersonate", url.Values{}, false)
@@ -383,20 +395,68 @@ func TestImpersonation(t *testing.T) {
 		t.Fatalf("impersonate: status %d, want a redirect", code)
 	}
 
-	// The session user is now alice, who isn't an admin: the panel is closed
-	// except for the page that explains why.
-	code, body, _ := do(t, c, http.MethodGet, srv.URL+"/admin/users", nil, false)
-	if code != http.StatusForbidden {
-		t.Fatalf("panel while impersonating: status %d, want 403", code)
-	}
-	mustContain(t, body, "You're impersonating a user", "Stop impersonating")
+	// The session user is now alice, who isn't an admin, so the panel is closed.
+	// What she lands on is her own profile and a way back, not an error.
+	t.Run("lands on the impersonated user's profile", func(t *testing.T) {
+		code, body, _ := do(t, c, http.MethodGet, srv.URL+"/admin/", nil, false)
+		if code != http.StatusOK {
+			t.Fatalf("status %d, want 200", code)
+		}
+		mustContain(t, body, "You're signed in as", "Alice Martin", "alice@example.com", "support", "admin@example.com", "Stop impersonating")
+		// One page, not a profile followed by an error page.
+		mustNotContain(t, body, "Something went wrong", "Error 500")
+		if n := strings.Count(body, "<html"); n != 1 {
+			t.Errorf("the response holds %d documents, want 1", n)
+		}
+		// No sidebar: every link in it would lead nowhere while impersonating.
+		mustNotContain(t, body, `href="/admin/users"`, `href="/admin/roles"`, `href="/admin/audit"`)
+	})
 
-	code, _, _ = do(t, c, http.MethodPost, srv.URL+"/admin/impersonate/stop", url.Values{}, false)
-	if code != http.StatusFound && code != http.StatusSeeOther {
-		t.Fatalf("stop: status %d, want a redirect", code)
-	}
-	code, _, _ = do(t, c, http.MethodGet, srv.URL+"/admin/users", nil, false)
-	if code != http.StatusOK {
-		t.Errorf("panel after stopping: status %d, want 200", code)
-	}
+	// The page is useless unstyled. These used to answer with the 403 page, so the
+	// browser got HTML instead of CSS and every icon rendered at full size.
+	t.Run("still serves its stylesheet and scripts", func(t *testing.T) {
+		for path, wantType := range map[string]string{
+			"/admin/static/admin.css":                    "text/css",
+			"/admin/static/htmx.min.js":                  "javascript",
+			"/admin/static/admin.js":                     "javascript",
+			"/admin/static/fonts/inter-latin-wght.woff2": "",
+		} {
+			code, _, h := do(t, c, http.MethodGet, srv.URL+path, nil, false)
+			if code != http.StatusOK {
+				t.Errorf("GET %s: status %d, want 200", path, code)
+			}
+			if got := h.Get("Content-Type"); wantType != "" && !strings.Contains(got, wantType) {
+				t.Errorf("GET %s: Content-Type %q, want it to contain %q", path, got, wantType)
+			}
+		}
+	})
+
+	t.Run("the rest of the panel stays closed", func(t *testing.T) {
+		// Reading sends you back to the profile page.
+		code, _, h := do(t, c, http.MethodGet, srv.URL+"/admin/users", nil, false)
+		if code != http.StatusSeeOther || h.Get("Location") != "/admin/" {
+			t.Errorf("GET /admin/users: status %d, Location %q; want 303 to /admin/", code, h.Get("Location"))
+		}
+		// Changing things is refused outright, and nothing changes.
+		admin := userID(t, auth, "admin@example.com")
+		code, _, _ = do(t, c, http.MethodPost, srv.URL+"/admin/users/"+admin+"/suspend", url.Values{}, false)
+		if code != http.StatusForbidden {
+			t.Errorf("POST suspend while impersonating: status %d, want 403", code)
+		}
+		if !getUser(t, auth, admin).IsActive {
+			t.Error("the admin was suspended through an impersonated session")
+		}
+	})
+
+	t.Run("stopping returns the panel", func(t *testing.T) {
+		code, _, _ := do(t, c, http.MethodPost, srv.URL+"/admin/impersonate/stop", url.Values{}, false)
+		if code != http.StatusFound && code != http.StatusSeeOther {
+			t.Fatalf("stop: status %d, want a redirect", code)
+		}
+		code, body, _ := do(t, c, http.MethodGet, srv.URL+"/admin/users", nil, false)
+		if code != http.StatusOK {
+			t.Fatalf("panel after stopping: status %d, want 200", code)
+		}
+		mustContain(t, body, `href="/admin/users"`)
+	})
 }

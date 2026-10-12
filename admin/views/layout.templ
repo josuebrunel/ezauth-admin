@@ -177,6 +177,20 @@ templ Layout(p Page, title string) {
 	</html>
 }
 
+// LayoutBare is the shell without the sidebar and top bar. It is for pages
+// shown while the panel itself is closed to the session, where every link in
+// the navigation would lead nowhere.
+templ LayoutBare(p Page, title string) {
+	<!DOCTYPE html>
+	<html lang="en">
+		@head(p, title)
+		<body>
+			<div class="mesh" aria-hidden="true"></div>
+			{ children... }
+		</body>
+	</html>
+}
+
 // Toast is an out-of-band fragment: HTMX appends it to #toasts, whatever the
 // request's own target was, and it removes itself after a few seconds.
 templ Toast(kind string, message string) {
