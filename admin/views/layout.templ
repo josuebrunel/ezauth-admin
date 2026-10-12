@@ -1,0 +1,89 @@
+package views
+
+import "github.com/josuebrunel/ezauth/pkg/db/models"
+
+// Page carries the data every full page needs.
+type Page struct {
+	AppName  string
+	BasePath string
+	User     *models.User
+}
+
+// URL returns path (starting with "/") under the panel's base path.
+func (p Page) URL(path string) templ.SafeURL {
+	return templ.URL(p.BasePath + path)
+}
+
+templ head(p Page, title string) {
+	<head>
+		<meta charset="UTF-8"/>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+		<meta name="robots" content="noindex, nofollow"/>
+		<title>{ title } · { p.AppName } Admin</title>
+		<meta name="description" content={ "Admin panel for " + p.AppName }/>
+		<link rel="stylesheet" href={ string(p.URL("/static/admin.css")) }/>
+		<script src={ string(p.URL("/static/htmx.min.js")) }></script>
+	</head>
+}
+
+type navItem struct {
+	Label string
+	Path  string
+}
+
+// navItems grows as sections land (users, roles, audit log).
+func navItems() []navItem {
+	return []navItem{
+		{Label: "Dashboard", Path: "/"},
+	}
+}
+
+templ sidebar(p Page, active string) {
+	<aside class="bg-base-200 min-h-full w-64 p-4 flex flex-col gap-2">
+		<a href={ p.URL("/") } class="text-xl font-bold px-2 py-3">{ p.AppName }</a>
+		<ul class="menu w-full gap-1 p-0">
+			for _, item := range navItems() {
+				<li>
+					<a href={ p.URL(item.Path) } class={ templ.KV("menu-active", item.Path == active) }>{ item.Label }</a>
+				</li>
+			}
+		</ul>
+	</aside>
+}
+
+templ topbar(p Page) {
+	<header class="navbar bg-base-100 border-b border-base-300 px-4">
+		<div class="flex-none lg:hidden">
+			<label for="admin-drawer" class="btn btn-ghost btn-square" aria-label="Open menu">
+				<span aria-hidden="true">&#9776;</span>
+			</label>
+		</div>
+		<div class="flex-1"></div>
+		if p.User != nil {
+			<span class="text-sm opacity-70">{ p.User.Email }</span>
+		}
+	</header>
+}
+
+// Layout is the shared shell: head, sidebar, top bar and content slot.
+templ Layout(p Page, title string, active string) {
+	<!DOCTYPE html>
+	<html lang="en" data-theme="light">
+		@head(p, title)
+		<body class="bg-base-100">
+			<div class="drawer lg:drawer-open">
+				<input id="admin-drawer" type="checkbox" class="drawer-toggle"/>
+				<div class="drawer-content flex flex-col">
+					@topbar(p)
+					<main class="p-4 md:p-8 max-w-6xl w-full">
+						{ children... }
+					</main>
+				</div>
+				<div class="drawer-side">
+					<label for="admin-drawer" aria-label="Close menu" class="drawer-overlay"></label>
+					@sidebar(p, active)
+				</div>
+			</div>
+		</body>
+	</html>
+}

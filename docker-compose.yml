@@ -1,0 +1,21 @@
+# Local dependencies for development. The example app (examples/chi) runs on
+# SQLite by default; use this Postgres to try the panel against another dialect.
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ezauth
+      POSTGRES_PASSWORD: ezauth
+      POSTGRES_DB: ezauth
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ezauth"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:

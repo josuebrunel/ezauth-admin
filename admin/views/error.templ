@@ -1,0 +1,17 @@
+package views
+
+import "strconv"
+
+templ ErrorPage(p Page, code int, message string) {
+	@Layout(p, "Error "+strconv.Itoa(code), "") {
+		<div class="card bg-base-200 max-w-xl">
+			<div class="card-body">
+				<h1 class="card-title">Error { strconv.Itoa(code) }</h1>
+				<p>{ message }</p>
+				<div class="card-actions">
+					<a href={ p.URL("/") } class="btn btn-primary">Back to dashboard</a>
+				</div>
+			</div>
+		</div>
+	}
+}

@@ -3,3 +3,4 @@ bin/
 .env
 .DS_Store
 coverage.txt
+node_modules/
