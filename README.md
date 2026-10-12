@@ -43,12 +43,13 @@ Still, it's an admin panel. Put it behind HTTPS, and think twice before exposing
 
 ## Stack
 
-Go, [Templ](https://templ.guide), [HTMX](https://htmx.org), and [picodaisy](https://github.com/josuebrunel/picodaisy) for styling. You don't need any of them installed to use the panel, the compiled templates and assets ship with the package.
+Go, [Templ](https://templ.guide), [HTMX](https://htmx.org), and [DaisyUI](https://daisyui.com) for styling. You don't need any of them installed to use the panel, the compiled templates and assets ship with the package.
 
 ## Develop
 
 ```sh
 make test
+make css          # only if you change the styles
 make run-example
 ```
 
