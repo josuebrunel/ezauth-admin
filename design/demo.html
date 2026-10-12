@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>EzAuth Admin · Manage users, roles and access</title>
+	<meta name="description" content="A light admin panel for EzAuth. Search users, suspend accounts, grant roles and read the audit log, all from one page you mount in your own app.">
+	<meta name="robots" content="noindex">
+	<meta property="og:title" content="EzAuth Admin · Manage users, roles and access">
+	<meta property="og:description" content="A light admin panel for EzAuth. Search users, suspend accounts, grant roles and read the audit log, all from one page you mount in your own app.">
+	<meta property="og:type" content="website">
+	<meta property="og:url" content="https://github.com/josuebrunel/ezauth-admin">
+	<meta property="og:image" content="https://opengraph.githubassets.com/1/josuebrunel/ezauth-admin">
+	<meta name="twitter:card" content="summary_large_image">
+	<meta name="twitter:title" content="EzAuth Admin · Manage users, roles and access">
+	<meta name="twitter:description" content="A light admin panel for EzAuth. Search users, suspend accounts, grant roles and read the audit log, all from one page you mount in your own app.">
+	<meta name="twitter:image" content="https://opengraph.githubassets.com/1/josuebrunel/ezauth-admin">
+	<script type="application/ld+json">
+	{
+		"@context": "https://schema.org",
+		"@type": "SoftwareApplication",
+		"name": "EzAuth Admin",
+		"applicationCategory": "DeveloperApplication",
+		"operatingSystem": "Any",
+		"description": "An embeddable admin panel for EzAuth: user management, roles and permissions, audit log.",
+		"url": "https://github.com/josuebrunel/ezauth-admin",
+		"license": "https://opensource.org/licenses/MIT",
+		"offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+	}
+	</script>
+
+	<!-- Throwaway demo: CDN CSS/JS on purpose. The real panel ships a built, embedded admin.css. -->
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daisyui@5.7.47/daisyui.css">
+	<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.3"></script>
+
+	<style type="text/tailwindcss">
+		@theme {
+			--font-display: "Sora", ui-sans-serif, system-ui, sans-serif;
+			--font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+		}
+	</style>
+
+	<style>
+		/* Custom DaisyUI themes. Every text/background pair below is >= 4.5:1 (WCAG 2.1 AA). */
+		[data-theme="ezlight"] {
+			color-scheme: light;
+			--color-base-100: #ffffff;
+			--color-base-200: #f3f4fb;
+			--color-base-300: #dfe1f0;
+			--color-base-content: #1a1c3b;      /* on base-100: 16:1 */
+			--color-primary: #4338ca;           /* white on it: 8.3:1 */
+			--color-primary-content: #ffffff;
+			--color-secondary: #0f766e;         /* white on it: 5.5:1 */
+			--color-secondary-content: #ffffff;
+			--color-accent: #7c3aed;
+			--color-accent-content: #ffffff;
+			--color-neutral: #1f2347;
+			--color-neutral-content: #f3f4fb;
+			--color-info: #0369a1;
+			--color-info-content: #ffffff;
+			--color-success: #15803d;
+			--color-success-content: #ffffff;
+			--color-warning: #b45309;
+			--color-warning-content: #ffffff;
+			--color-error: #b91c1c;
+			--color-error-content: #ffffff;
+			--radius-selector: 0.5rem;
+			--radius-field: 0.625rem;
+			--radius-box: 1rem;
+			--size-selector: 0.25rem;
+			--size-field: 0.25rem;
+			--border: 1px;
+			--depth: 0;
+			--noise: 0;
+			--muted: #4a4d75;                   /* on base-100: 8.4:1, on base-200: 7.5:1 */
+			--chip-ok-bg: #dcfce7;  --chip-ok-fg: #14532d;
+			--chip-bad-bg: #fee2e2; --chip-bad-fg: #7f1d1d;
+			--chip-warn-bg: #fef3c7; --chip-warn-fg: #78350f;
+			--chip-role-bg: #e0e7ff; --chip-role-fg: #312e81;
+		}
+		[data-theme="ezdark"] {
+			color-scheme: dark;
+			--color-base-100: #14152e;
+			--color-base-200: #1b1d3d;
+			--color-base-300: #2c2f5a;
+			--color-base-content: #e8e9f8;      /* on base-100: 14:1 */
+			--color-primary: #a5b4fc;           /* dark text on it: 8:1 */
+			--color-primary-content: #17183a;
+			--color-secondary: #5eead4;
+			--color-secondary-content: #04302b;
+			--color-accent: #c4b5fd;
+			--color-accent-content: #1e1245;
+			--color-neutral: #272a55;
+			--color-neutral-content: #e8e9f8;
+			--color-info: #7dd3fc;
+			--color-info-content: #052e45;
+			--color-success: #86efac;
+			--color-success-content: #052e16;
+			--color-warning: #fcd34d;
+			--color-warning-content: #3b2200;
+			--color-error: #fca5a5;
+			--color-error-content: #450a0a;
+			--radius-selector: 0.5rem;
+			--radius-field: 0.625rem;
+			--radius-box: 1rem;
+			--size-selector: 0.25rem;
+			--size-field: 0.25rem;
+			--border: 1px;
+			--depth: 0;
+			--noise: 0;
+			--muted: #b4b7e0;                   /* on base-100: 9.4:1 */
+			--chip-ok-bg: #14532d;  --chip-ok-fg: #dcfce7;
+			--chip-bad-bg: #7f1d1d; --chip-bad-fg: #fee2e2;
+			--chip-warn-bg: #78350f; --chip-warn-fg: #fef3c7;
+			--chip-role-bg: #312e81; --chip-role-fg: #e0e7ff;
+		}
+
+		html { font-family: var(--font-sans); }
+		body { background: var(--color-base-100); color: var(--color-base-content); min-height: 100vh; }
+		h1, h2, h3, .font-display { font-family: var(--font-display); letter-spacing: -0.01em; }
+		.muted { color: var(--muted); }
+
+		/* Visible keyboard focus everywhere. */
+		:focus-visible { outline: 3px solid var(--color-primary); outline-offset: 2px; }
+
+		/* Depth: soft mesh gradient behind everything. */
+		.mesh { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+		.mesh::before, .mesh::after { content: ""; position: absolute; border-radius: 50%; filter: blur(80px); opacity: .5; }
+		.mesh::before { width: 38rem; height: 38rem; top: -14rem; right: -10rem; background: radial-gradient(circle, color-mix(in srgb, var(--color-primary) 38%, transparent), transparent 70%); }
+		.mesh::after  { width: 32rem; height: 32rem; bottom: -12rem; left: 8rem; background: radial-gradient(circle, color-mix(in srgb, var(--color-secondary) 30%, transparent), transparent 70%); }
+
+		/* Glass surfaces. */
+		.glass-bar { background: color-mix(in srgb, var(--color-base-100) 78%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--color-base-300); }
+		.surface { background: color-mix(in srgb, var(--color-base-100) 86%, transparent); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid var(--color-base-300); border-radius: var(--radius-box); }
+
+		/* Status chips with checked contrast. */
+		.chip { display: inline-flex; align-items: center; gap: .35rem; font-size: .75rem; font-weight: 600; padding: .15rem .6rem; border-radius: 999px; white-space: nowrap; }
+		.chip-ok   { background: var(--chip-ok-bg);   color: var(--chip-ok-fg); }
+		.chip-bad  { background: var(--chip-bad-bg);  color: var(--chip-bad-fg); }
+		.chip-warn { background: var(--chip-warn-bg); color: var(--chip-warn-fg); }
+		.chip-role { background: var(--chip-role-bg); color: var(--chip-role-fg); }
+
+		.nav-link { display: flex; align-items: center; gap: .75rem; padding: .625rem .75rem; border-radius: var(--radius-field); font-weight: 500; color: var(--color-base-content); transition: background-color .2s ease, color .2s ease; }
+		.nav-link:hover { background: var(--color-base-300); }
+		.nav-link[aria-current="page"] { background: var(--color-primary); color: var(--color-primary-content); }
+
+		.view { display: none; }
+		.view.active { display: block; animation: fade .2s ease; }
+		@keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+		@media (prefers-reduced-motion: reduce) { .view.active { animation: none; } * { transition: none !important; } }
+
+		.stat-value { font-family: var(--font-display); font-weight: 700; font-size: 1.875rem; line-height: 1.1; }
+		.avatar-initials { display: grid; place-items: center; border-radius: 999px; font-weight: 600; font-family: var(--font-display); background: var(--color-primary); color: var(--color-primary-content); flex: none; }
+		table th { font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 600; }
+		.tab-btn[aria-selected="true"] { border-bottom-color: var(--color-primary); color: var(--color-base-content); font-weight: 600; }
+		.tab-btn { border-bottom: 2px solid transparent; padding: .75rem 1rem; color: var(--muted); transition: color .2s ease; }
+		.tab-btn:hover { color: var(--color-base-content); }
+	</style>
+</head>
+<body data-theme="ezlight">
+	<div class="mesh" aria-hidden="true"></div>
+	<a href="#main" class="btn btn-primary absolute -top-20 left-2 focus:top-2 z-50">Skip to content</a>
+
+	<div class="drawer lg:drawer-open">
+		<input id="nav-drawer" type="checkbox" class="drawer-toggle" aria-label="Toggle navigation">
+
+		<div class="drawer-content flex flex-col min-w-0">
+			<!-- Impersonation banner -->
+			<div id="impersonation" class="hidden bg-warning text-warning-content px-4 py-2 text-sm font-medium" role="status">
+				<div class="flex flex-wrap items-center justify-between gap-2 max-w-6xl mx-auto">
+					<span>Impersonating <strong id="imp-name"></strong>. You're really Josue Kouka.</span>
+					<button class="btn btn-sm btn-neutral" id="imp-stop">Stop impersonating</button>
+				</div>
+			</div>
+
+			<header class="glass-bar sticky top-0 z-30">
+				<div class="flex items-center gap-3 px-4 h-16 max-w-6xl mx-auto w-full">
+					<label for="nav-drawer" class="btn btn-ghost btn-square lg:hidden" aria-label="Open navigation">
+						<svg class="size-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+					</label>
+					<nav aria-label="Breadcrumb" class="flex-1 min-w-0">
+						<ol class="flex items-center gap-2 text-sm muted" id="crumbs"></ol>
+					</nav>
+					<button class="btn btn-ghost btn-square" id="theme-toggle" aria-label="Switch to dark theme">
+						<svg class="size-5" id="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+						<svg class="size-5 hidden" id="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+					</button>
+					<div class="avatar-initials size-9 text-sm" title="Josue Kouka" aria-label="Signed in as Josue Kouka">JK</div>
+				</div>
+			</header>
+
+			<main id="main" class="px-4 py-6 md:py-10 max-w-6xl mx-auto w-full">
+
+				<!-- DASHBOARD -->
+				<section id="view-dashboard" class="view" aria-labelledby="h-dashboard">
+					<h1 id="h-dashboard" class="text-2xl md:text-3xl font-bold">Good morning, Josue</h1>
+					<p class="muted mt-1">Here's what happened in Acme in the last 7 days.</p>
+
+					<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mt-6" id="stats"></div>
+
+					<div class="grid lg:grid-cols-3 gap-4 mt-4">
+						<article class="surface p-5 lg:col-span-2" aria-labelledby="h-signups">
+							<div class="flex items-baseline justify-between">
+								<h2 id="h-signups" class="text-lg font-semibold">New sign-ups</h2>
+								<span class="text-sm muted">Last 14 days</span>
+							</div>
+							<div id="chart" class="mt-4" role="img" aria-label="Bar chart of new sign-ups per day over the last 14 days"></div>
+						</article>
+						<article class="surface p-5" aria-labelledby="h-recent">
+							<h2 id="h-recent" class="text-lg font-semibold">Recent activity</h2>
+							<ul class="mt-3 space-y-3" id="recent"></ul>
+							<a href="#/users" class="link link-primary text-sm mt-4 inline-block font-medium">See all users</a>
+						</article>
+					</div>
+				</section>
+
+				<!-- USERS -->
+				<section id="view-users" class="view" aria-labelledby="h-users">
+					<div class="flex flex-wrap items-end justify-between gap-3">
+						<div>
+							<h1 id="h-users" class="text-2xl md:text-3xl font-bold">Users</h1>
+							<p class="muted mt-1" id="users-count" aria-live="polite"></p>
+						</div>
+					</div>
+
+					<div class="surface mt-5 p-3 md:p-4">
+						<div class="flex flex-col md:flex-row gap-3">
+							<label class="input w-full md:flex-1">
+								<svg class="size-4 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+								<span class="sr-only">Search users</span>
+								<input type="search" id="q" placeholder="Search by name, email or username" autocomplete="off">
+							</label>
+							<label class="select w-full md:w-48">
+								<span class="sr-only">Filter by role</span>
+								<select id="role-filter"><option value="">All roles</option></select>
+							</label>
+						</div>
+						<div class="flex flex-wrap gap-2 mt-3" role="group" aria-label="Filter by status" id="status-filters"></div>
+					</div>
+
+					<!-- Mobile: cards -->
+					<ul class="md:hidden mt-4 space-y-3" id="user-cards"></ul>
+
+					<!-- Desktop: table -->
+					<div class="hidden md:block surface mt-4 overflow-x-auto">
+						<table class="table">
+							<thead><tr><th scope="col">User</th><th scope="col">Status</th><th scope="col">Roles</th><th scope="col">Last active</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+							<tbody id="user-rows"></tbody>
+						</table>
+					</div>
+
+					<p id="users-empty" class="hidden surface p-8 text-center mt-4">
+						<strong class="block text-lg font-display">No users match that search</strong>
+						<span class="muted">Try a different name or clear the filters.</span>
+					</p>
+
+					<div class="flex items-center justify-between mt-4">
+						<p class="text-sm muted" id="page-info" aria-live="polite"></p>
+						<div class="join">
+							<button class="btn btn-sm join-item" id="prev">Previous</button>
+							<button class="btn btn-sm join-item" id="next">Next</button>
+						</div>
+					</div>
+				</section>
+
+				<!-- USER DETAIL -->
+				<section id="view-user" class="view" aria-labelledby="h-user">
+					<a href="#/users" class="link text-sm font-medium inline-flex items-center gap-1">
+						<svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+						All users
+					</a>
+
+					<div class="flex flex-col md:flex-row md:items-center gap-4 mt-4">
+						<div class="flex items-center gap-4 flex-1 min-w-0">
+							<div class="avatar-initials size-16 text-xl" id="u-avatar" aria-hidden="true"></div>
+							<div class="min-w-0">
+								<h1 id="h-user" class="text-2xl md:text-3xl font-bold truncate"></h1>
+								<p class="muted truncate" id="u-email"></p>
+								<div class="flex flex-wrap gap-2 mt-2" id="u-badges"></div>
+							</div>
+						</div>
+						<div class="flex flex-wrap gap-2">
+							<button class="btn btn-primary" id="u-impersonate">Impersonate</button>
+							<button class="btn" id="u-toggle"></button>
+						</div>
+					</div>
+
+					<div role="tablist" class="flex border-b border-base-300 mt-6 overflow-x-auto" aria-label="User sections">
+						<button role="tab" class="tab-btn" id="tab-overview" aria-controls="panel-overview" aria-selected="true">Overview</button>
+						<button role="tab" class="tab-btn" id="tab-roles" aria-controls="panel-roles" aria-selected="false" tabindex="-1">Roles and access</button>
+						<button role="tab" class="tab-btn" id="tab-activity" aria-controls="panel-activity" aria-selected="false" tabindex="-1">Activity</button>
+					</div>
+
+					<div id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" class="mt-5 space-y-4">
+						<article class="surface p-5">
+							<h2 class="text-lg font-semibold">Profile</h2>
+							<dl class="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4 mt-4" id="u-profile"></dl>
+						</article>
+						<article class="surface p-5">
+							<h2 class="text-lg font-semibold">Admin notes</h2>
+							<p class="text-sm muted mt-1">Only admins see these. The user can't read or edit them.</p>
+							<label class="sr-only" for="u-notes">Admin notes</label>
+							<textarea id="u-notes" class="textarea w-full mt-3" rows="3" placeholder="Add a note, for example: asked for a refund on Oct 3"></textarea>
+							<button class="btn btn-sm mt-3" id="u-notes-save">Save note</button>
+						</article>
+						<article class="surface p-5 border-error/40" aria-labelledby="h-danger">
+							<h2 id="h-danger" class="text-lg font-semibold text-error">Danger zone</h2>
+							<p class="text-sm muted mt-1">Deleting a user removes their account and sessions. Their audit history is kept.</p>
+							<button class="btn btn-error btn-outline mt-3" id="u-delete">Delete user</button>
+						</article>
+					</div>
+
+					<div id="panel-roles" role="tabpanel" aria-labelledby="tab-roles" class="mt-5 space-y-4" hidden>
+						<article class="surface p-5">
+							<h2 class="text-lg font-semibold">Roles</h2>
+							<ul class="flex flex-wrap gap-2 mt-3" id="u-roles" aria-live="polite"></ul>
+							<form class="flex flex-col sm:flex-row gap-2 mt-4" id="grant-form">
+								<label class="select w-full sm:w-64"><span class="sr-only">Role to grant</span><select id="grant-select"></select></label>
+								<button class="btn btn-primary" type="submit">Grant role</button>
+							</form>
+						</article>
+						<article class="surface p-5">
+							<h2 class="text-lg font-semibold">Effective permissions</h2>
+							<p class="text-sm muted mt-1">Granted through the roles above.</p>
+							<ul class="flex flex-wrap gap-2 mt-3" id="u-perms"></ul>
+						</article>
+					</div>
+
+					<div id="panel-activity" role="tabpanel" aria-labelledby="tab-activity" class="mt-5 space-y-4" hidden>
+						<article class="surface p-5">
+							<h2 class="text-lg font-semibold">Audit log</h2>
+							<ol class="mt-4 space-y-4 border-l border-base-300 ml-2" id="u-audit"></ol>
+						</article>
+						<article class="surface p-5 overflow-x-auto">
+							<h2 class="text-lg font-semibold">Sessions and tokens</h2>
+							<table class="table mt-2">
+								<thead><tr><th scope="col">Type</th><th scope="col">Created</th><th scope="col">Expires</th><th scope="col">State</th></tr></thead>
+								<tbody id="u-tokens"></tbody>
+							</table>
+						</article>
+					</div>
+				</section>
+			</main>
+		</div>
+
+		<div class="drawer-side z-40">
+			<label for="nav-drawer" aria-label="Close navigation" class="drawer-overlay"></label>
+			<aside class="min-h-full w-72 bg-base-200 border-r border-base-300 p-4 flex flex-col">
+				<a href="#/" class="flex items-center gap-3 px-2 py-3">
+					<span class="size-9 rounded-xl bg-primary text-primary-content grid place-items-center" aria-hidden="true">
+						<svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 4.5 3.2 8.2 8 9 4.8-.8 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg>
+					</span>
+					<span class="leading-tight"><span class="block font-display font-semibold text-lg">Acme</span><span class="block text-xs muted">Admin</span></span>
+				</a>
+				<nav aria-label="Main" class="mt-4 space-y-1" id="main-nav">
+					<a class="nav-link" href="#/" data-nav="dashboard">
+						<svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+						Dashboard
+					</a>
+					<a class="nav-link" href="#/users" data-nav="users">
+						<svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></svg>
+						Users
+					</a>
+				</nav>
+				<p class="mt-auto text-xs muted px-2 pt-6">Signed in as<br><strong class="text-base-content">josue@acme.dev</strong></p>
+			</aside>
+		</div>
+	</div>
+
+	<!-- Delete confirmation -->
+	<dialog id="delete-dialog" class="modal modal-bottom sm:modal-middle" aria-labelledby="del-title">
+		<form method="dialog" class="modal-box" id="delete-form">
+			<h2 id="del-title" class="font-display font-semibold text-lg">Delete this user?</h2>
+			<p class="py-3 text-sm">This can't be undone. Type <strong id="del-email"></strong> to confirm.</p>
+			<label class="sr-only" for="del-confirm">Type the email to confirm</label>
+			<input id="del-confirm" class="input w-full" autocomplete="off">
+			<div class="modal-action">
+				<button class="btn" value="cancel" formnovalidate>Cancel</button>
+				<button class="btn btn-error" id="del-go" value="delete" disabled>Delete user</button>
+			</div>
+		</form>
+		<form method="dialog" class="modal-backdrop"><button aria-label="Close dialog">close</button></form>
+	</dialog>
+
+	<div class="toast toast-end z-50" id="toasts" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+	'use strict';
+
+	// ---------- mock data (realistic, static) ----------
+	const ROLES = {
+		admin:   { perms: ['users.read', 'users.write', 'roles.write', 'audit.read'] },
+		support: { perms: ['users.read', 'users.suspend', 'audit.read'] },
+		billing: { perms: ['users.read', 'invoices.read', 'invoices.write'] },
+		editor:  { perms: ['content.read', 'content.write'] },
+	};
+	const day = 86400000, now = Date.now();
+	const ago = (d, h = 0) => new Date(now - d * day - h * 3600000);
+	const USERS = [
+		{ id: 'u1',  first: 'Josue',   last: 'Kouka',   email: 'josue@acme.dev',     username: 'josue',   roles: ['admin'],            active: true,  verified: true,  created: ago(412), login: ago(0, 1),  seen: ago(0, 0),  provider: 'password', phone: '+33 6 12 34 56 78', locale: 'en', tz: 'Europe/Paris', notes: '' },
+		{ id: 'u2',  first: 'Amara',   last: 'Okafor',  email: 'amara.okafor@acme.dev', username: 'amara', roles: ['support'],          active: true,  verified: true,  created: ago(301), login: ago(0, 3),  seen: ago(0, 2),  provider: 'password', phone: '+234 802 555 0142', locale: 'en', tz: 'Africa/Lagos', notes: 'Runs the Tuesday support rota.' },
+		{ id: 'u3',  first: 'Lucas',   last: 'Moreau',  email: 'lucas.moreau@gmail.com', username: 'lucasm', roles: [],                  active: true,  verified: true,  created: ago(188), login: ago(1, 4),  seen: ago(1, 2),  provider: 'google',   phone: '', locale: 'fr', tz: 'Europe/Paris', notes: '' },
+		{ id: 'u4',  first: 'Priya',   last: 'Nair',    email: 'priya@nairdesign.co',  username: 'priya',   roles: ['editor'],           active: true,  verified: true,  created: ago(97),  login: ago(2, 5),  seen: ago(2, 1),  provider: 'github',   phone: '+91 98765 43210', locale: 'en', tz: 'Asia/Kolkata', notes: 'Freelance. Invoices go through billing.' },
+		{ id: 'u5',  first: 'Tomás',   last: 'Herrera', email: 'tomas.herrera@outlook.com', username: 'tomash', roles: [],               active: false, verified: true,  created: ago(143), login: ago(19),    seen: ago(19),    provider: 'password', phone: '', locale: 'es', tz: 'America/Bogota', notes: 'Suspended Oct 1: chargeback dispute open.' },
+		{ id: 'u6',  first: 'Sofia',   last: 'Lindqvist', email: 'sofia.l@lindqvist.se', username: 'sofia', roles: ['billing'],          active: true,  verified: true,  created: ago(76),  login: ago(0, 6),  seen: ago(0, 5),  provider: 'password', phone: '+46 70 555 01 22', locale: 'sv', tz: 'Europe/Stockholm', notes: '' },
+		{ id: 'u7',  first: 'Kwame',   last: 'Mensah',  email: 'kwame@mensah.io',      username: 'kwame',   roles: [],                   active: true,  verified: false, created: ago(2),   login: ago(2),     seen: ago(2),     provider: 'password', phone: '', locale: 'en', tz: 'Africa/Accra', notes: '' },
+		{ id: 'u8',  first: 'Hannah',  last: 'Fischer', email: 'hannah.fischer@web.de', username: 'hannahf', roles: [],                  active: true,  verified: true,  created: ago(54),  login: ago(4, 2),  seen: ago(4),     provider: 'google',   phone: '', locale: 'de', tz: 'Europe/Berlin', notes: '' },
+		{ id: 'u9',  first: 'Mateo',   last: 'Silva',   email: 'mateo.silva@gmail.com', username: 'mateos',  roles: [],                  active: true,  verified: false, created: ago(1),   login: ago(1),     seen: ago(1),     provider: 'password', phone: '', locale: 'pt', tz: 'America/Sao_Paulo', notes: '' },
+		{ id: 'u10', first: 'Yuki',    last: 'Tanaka',  email: 'yuki.tanaka@tanaka.jp', username: 'yuki',   roles: ['editor'],           active: true,  verified: true,  created: ago(231), login: ago(6),     seen: ago(5, 3),  provider: 'github',   phone: '+81 90 5555 0199', locale: 'ja', tz: 'Asia/Tokyo', notes: '' },
+		{ id: 'u11', first: 'Chidi',   last: 'Eze',     email: 'chidi.eze@proton.me',  username: 'chidi',   roles: [],                   active: false, verified: true,  created: ago(66),  login: ago(33),    seen: ago(33),    provider: 'password', phone: '', locale: 'en', tz: 'Africa/Lagos', notes: 'Suspended after repeated failed logins.' },
+		{ id: 'u12', first: 'Elena',   last: 'Rossi',   email: 'elena.rossi@rossi.it', username: 'elena',   roles: [],                   active: true,  verified: true,  created: ago(5),   login: ago(0, 8),  seen: ago(0, 7),  provider: 'password', phone: '', locale: 'it', tz: 'Europe/Rome', notes: '' },
+	];
+	const SIGNUPS = [1, 0, 2, 1, 3, 2, 0, 1, 4, 2, 3, 5, 2, 4];
+	const byId = id => USERS.find(u => u.id === id);
+
+	// ---------- helpers ----------
+	const $ = (s, el = document) => el.querySelector(s);
+	const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+	const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+	const name = u => `${u.first} ${u.last}`;
+	const initials = u => (u.first[0] + u.last[0]).toUpperCase();
+	const fmtDate = d => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+	const fmtTime = d => d.toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+	const rel = d => {
+		const m = Math.round((now - d) / 60000);
+		if (m < 60) return `${Math.max(m, 1)} min ago`;
+		const h = Math.round(m / 60);
+		if (h < 24) return `${h} h ago`;
+		const dd = Math.round(h / 24);
+		return dd === 1 ? 'yesterday' : `${dd} days ago`;
+	};
+	const statusChips = u => [
+		u.active ? '<span class="chip chip-ok">Active</span>' : '<span class="chip chip-bad">Suspended</span>',
+		u.verified ? '' : '<span class="chip chip-warn">Unverified</span>',
+	].join(' ');
+	const roleChips = u => u.roles.length
+		? u.roles.map(r => `<span class="chip chip-role">${esc(r)}</span>`).join(' ')
+		: '<span class="muted text-sm">None</span>';
+
+	function toast(msg) {
+		const el = document.createElement('div');
+		el.className = 'alert bg-neutral text-neutral-content shadow-lg';
+		el.innerHTML = `<span>${esc(msg)}</span>`;
+		$('#toasts').append(el);
+		setTimeout(() => el.remove(), 3200);
+	}
+
+	// ---------- theme ----------
+	const root = document.body;
+	function setTheme(t) {
+		root.dataset.theme = t;
+		const dark = t === 'ezdark';
+		$('#icon-moon').classList.toggle('hidden', dark);
+		$('#icon-sun').classList.toggle('hidden', !dark);
+		$('#theme-toggle').setAttribute('aria-label', dark ? 'Switch to light theme' : 'Switch to dark theme');
+		try { localStorage.setItem('ez-demo-theme', t); } catch (_) {}
+	}
+	let saved = null;
+	try { saved = localStorage.getItem('ez-demo-theme'); } catch (_) {}
+	setTheme(saved || (matchMedia('(prefers-color-scheme: dark)').matches ? 'ezdark' : 'ezlight'));
+	$('#theme-toggle').addEventListener('click', () => setTheme(root.dataset.theme === 'ezdark' ? 'ezlight' : 'ezdark'));
+
+	// ---------- dashboard ----------
+	function renderDashboard() {
+		const week = now - 7 * day;
+		const stats = [
+			['Total users', USERS.length, 'All accounts'],
+			['Active this week', USERS.filter(u => u.seen > week).length, 'Signed in or used the app'],
+			['New this week', USERS.filter(u => u.created > week).length, 'Joined in the last 7 days'],
+			['Suspended', USERS.filter(u => !u.active).length, 'Can\'t sign in'],
+		];
+		$('#stats').innerHTML = stats.map(([l, v, h]) => `
+			<article class="surface p-4 md:p-5">
+				<h2 class="text-sm font-medium muted">${l}</h2>
+				<p class="stat-value mt-2">${v}</p>
+				<p class="text-xs muted mt-1">${h}</p>
+			</article>`).join('');
+
+		const max = Math.max(...SIGNUPS), W = 560, H = 160, gap = 6, bw = (W - gap * (SIGNUPS.length - 1)) / SIGNUPS.length;
+		$('#chart').innerHTML = `<svg viewBox="0 0 ${W} ${H + 22}" class="w-full h-auto" aria-hidden="true">
+			${SIGNUPS.map((v, i) => {
+				const h = Math.max(v / max * H, 3), x = i * (bw + gap);
+				return `<rect x="${x}" y="${H - h}" width="${bw}" height="${h}" rx="4" fill="var(--color-primary)" opacity="${i === SIGNUPS.length - 1 ? 1 : .55}"/>
+				<text x="${x + bw / 2}" y="${H + 16}" text-anchor="middle" font-size="11" fill="var(--muted)">${v}</text>`;
+			}).join('')}
+		</svg>`;
+
+		const events = [
+			['Elena Rossi signed in', USERS[11].login],
+			['Sofia Lindqvist was granted billing', ago(0, 9)],
+			['Mateo Silva registered', ago(1)],
+			['Tomás Herrera was suspended', ago(19)],
+			['Kwame Mensah registered', ago(2)],
+		];
+		$('#recent').innerHTML = events.map(([t, d]) => `
+			<li class="text-sm"><span class="block font-medium">${esc(t)}</span><span class="muted text-xs">${rel(d)}</span></li>`).join('');
+	}
+
+	// ---------- users list ----------
+	const PAGE = 8;
+	const state = { q: '', status: 'all', role: '', page: 1 };
+	const STATUSES = [['all', 'All'], ['active', 'Active'], ['suspended', 'Suspended'], ['unverified', 'Unverified']];
+
+	function filtered() {
+		const q = state.q.trim().toLowerCase();
+		return USERS.filter(u =>
+			(!q || [name(u), u.email, u.username].some(s => s.toLowerCase().includes(q))) &&
+			(state.status === 'all' || (state.status === 'active' && u.active) || (state.status === 'suspended' && !u.active) || (state.status === 'unverified' && !u.verified)) &&
+			(!state.role || u.roles.includes(state.role)));
+	}
+
+	function renderUsers() {
+		$('#status-filters').innerHTML = STATUSES.map(([k, l]) =>
+			`<button class="btn btn-sm ${state.status === k ? 'btn-primary' : ''}" data-status="${k}" aria-pressed="${state.status === k}">${l}</button>`).join('');
+		const list = filtered(), pages = Math.max(Math.ceil(list.length / PAGE), 1);
+		state.page = Math.min(state.page, pages);
+		const slice = list.slice((state.page - 1) * PAGE, state.page * PAGE);
+
+		$('#users-count').textContent = `${USERS.length} accounts, ${list.length} shown`;
+		$('#users-empty').classList.toggle('hidden', list.length > 0);
+		$('#page-info').textContent = list.length ? `Showing ${(state.page - 1) * PAGE + 1} to ${(state.page - 1) * PAGE + slice.length} of ${list.length}` : '';
+		$('#prev').disabled = state.page <= 1;
+		$('#next').disabled = state.page >= pages;
+
+		$('#user-rows').innerHTML = slice.map(u => `
+			<tr class="hover:bg-base-200/60">
+				<td><a href="#/users/${u.id}" class="flex items-center gap-3 group">
+					<span class="avatar-initials size-10 text-sm" aria-hidden="true">${initials(u)}</span>
+					<span class="min-w-0"><span class="block font-medium group-hover:underline">${esc(name(u))}</span><span class="block text-sm muted">${esc(u.email)}</span></span>
+				</a></td>
+				<td><div class="flex flex-wrap gap-1">${statusChips(u)}</div></td>
+				<td><div class="flex flex-wrap gap-1">${roleChips(u)}</div></td>
+				<td class="text-sm muted whitespace-nowrap">${rel(u.seen)}</td>
+				<td class="text-right"><a class="btn btn-sm" href="#/users/${u.id}" aria-label="Manage ${esc(name(u))}">Manage</a></td>
+			</tr>`).join('');
+
+		$('#user-cards').innerHTML = slice.map(u => `
+			<li><a href="#/users/${u.id}" class="surface p-4 flex gap-3 items-start">
+				<span class="avatar-initials size-11 text-sm" aria-hidden="true">${initials(u)}</span>
+				<span class="min-w-0 flex-1">
+					<span class="block font-semibold">${esc(name(u))}</span>
+					<span class="block text-sm muted truncate">${esc(u.email)}</span>
+					<span class="flex flex-wrap gap-1 mt-2">${statusChips(u)} ${u.roles.map(r => `<span class="chip chip-role">${esc(r)}</span>`).join(' ')}</span>
+					<span class="block text-xs muted mt-2">Active ${rel(u.seen)}</span>
+				</span>
+			</a></li>`).join('');
+	}
+
+	$('#role-filter').innerHTML += Object.keys(ROLES).map(r => `<option value="${r}">${r}</option>`).join('');
+	$('#q').addEventListener('input', e => { state.q = e.target.value; state.page = 1; renderUsers(); });
+	$('#role-filter').addEventListener('change', e => { state.role = e.target.value; state.page = 1; renderUsers(); });
+	$('#status-filters').addEventListener('click', e => {
+		const b = e.target.closest('[data-status]');
+		if (b) { state.status = b.dataset.status; state.page = 1; renderUsers(); }
+	});
+	$('#prev').addEventListener('click', () => { state.page--; renderUsers(); });
+	$('#next').addEventListener('click', () => { state.page++; renderUsers(); });
+
+	// ---------- user detail ----------
+	let current = null;
+	const dl = (k, v) => `<div><dt class="text-xs font-semibold uppercase tracking-wide muted">${k}</dt><dd class="mt-0.5">${v || '<span class="muted">Not set</span>'}</dd></div>`;
+
+	function renderUser() {
+		const u = current;
+		$('#u-avatar').textContent = initials(u);
+		$('#h-user').textContent = name(u);
+		$('#u-email').textContent = u.email;
+		$('#u-badges').innerHTML = statusChips(u) + ` <span class="chip chip-role">${esc(u.provider)}</span>`;
+		$('#u-toggle').textContent = u.active ? 'Suspend' : 'Reactivate';
+		$('#u-toggle').className = 'btn ' + (u.active ? '' : 'btn-secondary');
+		$('#u-profile').innerHTML = [
+			dl('Username', esc(u.username)), dl('Phone', esc(u.phone)), dl('Locale', esc(u.locale)),
+			dl('Time zone', esc(u.tz)), dl('Joined', fmtDate(u.created)), dl('Last sign-in', fmtTime(u.login)),
+			dl('Last active', rel(u.seen)), dl('Email', u.verified ? 'Verified' : 'Not verified yet'), dl('Sign-in method', esc(u.provider)),
+		].join('');
+		$('#u-notes').value = u.notes;
+
+		$('#u-roles').innerHTML = u.roles.length ? u.roles.map(r => `
+			<li class="chip chip-role !text-sm !py-1">${esc(r)}
+				<button class="ml-1 rounded-full size-5 grid place-items-center hover:bg-base-300/60" data-revoke="${r}" aria-label="Revoke ${esc(r)}">
+					<svg class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+				</button></li>`).join('') : '<li class="muted text-sm">No roles granted yet.</li>';
+		const free = Object.keys(ROLES).filter(r => !u.roles.includes(r));
+		$('#grant-select').innerHTML = free.length ? free.map(r => `<option>${r}</option>`).join('') : '<option value="">All roles granted</option>';
+		$('#grant-form button').disabled = !free.length;
+		const perms = [...new Set(u.roles.flatMap(r => ROLES[r].perms))];
+		$('#u-perms').innerHTML = perms.length ? perms.map(p => `<li><code class="chip chip-role font-mono">${esc(p)}</code></li>`).join('') : '<li class="muted text-sm">No permissions. Grant a role to add some.</li>';
+
+		const audit = [
+			[u.login, 'Signed in', 'login.succeeded', 'ok'],
+			...u.roles.map((r, i) => [ago(30 + i), `Granted role ${r}`, 'role.granted', 'ok']),
+			...(u.active ? [] : [[ago(18), 'Account suspended by Josue Kouka', 'account.suspended', 'bad']]),
+			...(u.verified ? [[new Date(u.created.getTime() + 600000), 'Verified email address', 'email.verified', 'ok']] : []),
+			[u.created, 'Account created', 'user.created', 'ok'],
+		].sort((a, b) => b[0] - a[0]);
+		$('#u-audit').innerHTML = audit.map(([d, t, k, s]) => `
+			<li class="relative pl-5">
+				<span class="absolute -left-[5px] top-1.5 size-2.5 rounded-full ${s === 'bad' ? 'bg-error' : 'bg-primary'}" aria-hidden="true"></span>
+				<p class="font-medium">${esc(t)}</p>
+				<p class="text-xs muted"><code>${k}</code> · ${fmtTime(d)}</p>
+			</li>`).join('');
+		$('#u-tokens').innerHTML = [
+			['Refresh token', u.login, new Date(u.login.getTime() + 30 * day), u.active],
+			['Access token', u.login, new Date(u.login.getTime() + 3600000), false],
+			['Password reset', ago(70), ago(69), false],
+		].map(([t, c, e, live]) => `<tr><td>${t}</td><td class="whitespace-nowrap">${fmtTime(c)}</td><td class="whitespace-nowrap">${fmtDate(e)}</td>
+			<td>${live ? '<span class="chip chip-ok">Active</span>' : '<span class="chip chip-warn">Expired</span>'}</td></tr>`).join('');
+	}
+
+	function selectTab(id) {
+		$$('[role=tab]').forEach(t => {
+			const on = t.id === id;
+			t.setAttribute('aria-selected', on);
+			t.tabIndex = on ? 0 : -1;
+			$('#' + t.getAttribute('aria-controls')).hidden = !on;
+		});
+	}
+	$$('[role=tab]').forEach(t => {
+		t.addEventListener('click', () => selectTab(t.id));
+		t.addEventListener('keydown', e => {
+			const tabs = $$('[role=tab]'), i = tabs.indexOf(t);
+			const next = e.key === 'ArrowRight' ? tabs[(i + 1) % tabs.length] : e.key === 'ArrowLeft' ? tabs[(i - 1 + tabs.length) % tabs.length] : null;
+			if (next) { next.focus(); selectTab(next.id); e.preventDefault(); }
+		});
+	});
+
+	$('#u-toggle').addEventListener('click', () => {
+		current.active = !current.active;
+		renderUser();
+		toast(current.active ? `${name(current)} can sign in again.` : `${name(current)} was suspended and signed out everywhere.`);
+	});
+	$('#u-impersonate').addEventListener('click', () => {
+		$('#imp-name').textContent = name(current);
+		$('#impersonation').classList.remove('hidden');
+		toast(`You're now browsing as ${name(current)}.`);
+	});
+	$('#imp-stop').addEventListener('click', () => { $('#impersonation').classList.add('hidden'); toast('Back to your own account.'); });
+	$('#u-notes-save').addEventListener('click', () => { current.notes = $('#u-notes').value; toast('Note saved.'); });
+	$('#u-roles').addEventListener('click', e => {
+		const b = e.target.closest('[data-revoke]');
+		if (!b) return;
+		current.roles = current.roles.filter(r => r !== b.dataset.revoke);
+		renderUser();
+		toast(`Revoked ${b.dataset.revoke} from ${name(current)}.`);
+	});
+	$('#grant-form').addEventListener('submit', e => {
+		e.preventDefault();
+		const r = $('#grant-select').value;
+		if (!r) return;
+		current.roles.push(r);
+		renderUser();
+		toast(`Granted ${r} to ${name(current)}.`);
+	});
+
+	const dlg = $('#delete-dialog');
+	$('#u-delete').addEventListener('click', () => {
+		$('#del-email').textContent = current.email;
+		$('#del-confirm').value = '';
+		$('#del-go').disabled = true;
+		dlg.showModal();
+		$('#del-confirm').focus();
+	});
+	$('#del-confirm').addEventListener('input', e => { $('#del-go').disabled = e.target.value !== current.email; });
+	dlg.addEventListener('close', () => {
+		if (dlg.returnValue !== 'delete') return;
+		USERS.splice(USERS.indexOf(current), 1);
+		location.hash = '#/users';
+		toast('User deleted.');
+	});
+
+	// ---------- router ----------
+	const VIEWS = ['dashboard', 'users', 'user'];
+	function route() {
+		const h = location.hash.replace(/^#/, '') || '/';
+		let view = 'dashboard', crumbs = [['Dashboard']];
+		const m = h.match(/^\/users\/(\w+)$/);
+		if (h === '/users') { view = 'users'; crumbs = [['Dashboard', '#/'], ['Users']]; renderUsers(); }
+		else if (m && byId(m[1])) {
+			view = 'user'; current = byId(m[1]); renderUser(); selectTab('tab-overview');
+			crumbs = [['Dashboard', '#/'], ['Users', '#/users'], [name(current)]];
+		} else { renderDashboard(); }
+		VIEWS.forEach(v => $('#view-' + v).classList.toggle('active', v === view));
+		$$('[data-nav]').forEach(a => {
+			const on = a.dataset.nav === (view === 'user' ? 'users' : view);
+			on ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current');
+		});
+		$('#crumbs').innerHTML = crumbs.map(([l, href], i) =>
+			`<li class="${i === crumbs.length - 1 ? 'text-base-content font-medium truncate' : 'hidden sm:block'}">${href ? `<a class="link" href="${href}">${esc(l)}</a>` : esc(l)}</li>`)
+			.join('<li class="hidden sm:block" aria-hidden="true">/</li>');
+		$('#nav-drawer').checked = false;
+		window.scrollTo({ top: 0 });
+		document.title = `${crumbs[crumbs.length - 1][0]} · Acme Admin`;
+	}
+	addEventListener('hashchange', route);
+	route();
+})();
+</script>
+</body>
+</html>
