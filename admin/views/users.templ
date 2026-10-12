@@ -1,0 +1,177 @@
+package views
+
+import (
+	"fmt"
+	"net/url"
+	"strconv"
+	"time"
+
+	"github.com/josuebrunel/ezauth/pkg/db/models"
+)
+
+// UsersData is everything the users list needs to render.
+type UsersData struct {
+	Users    []*models.User
+	Query    string
+	Status   string // "", "active", "suspended" or "locked"
+	Page     int    // 1-based
+	PageSize int
+	HasMore  bool
+	Now      time.Time
+}
+
+// pageURL links to another page of the same search, keeping the filters.
+func (d UsersData) pageURL(p Page, page int) string {
+	q := url.Values{}
+	if d.Query != "" {
+		q.Set("q", d.Query)
+	}
+	if d.Status != "" {
+		q.Set("status", d.Status)
+	}
+	if page > 1 {
+		q.Set("page", strconv.Itoa(page))
+	}
+	if enc := q.Encode(); enc != "" {
+		return p.Path("/users") + "?" + enc
+	}
+	return p.Path("/users")
+}
+
+func (d UsersData) rangeText() string {
+	if len(d.Users) == 0 {
+		return ""
+	}
+	from := (d.Page-1)*d.PageSize + 1
+	return fmt.Sprintf("Showing %d to %d", from, from+len(d.Users)-1)
+}
+
+type statusFilter struct{ Value, Label string }
+
+func statusFilters() []statusFilter {
+	return []statusFilter{{"", "All"}, {"active", "Active"}, {"suspended", "Suspended"}, {"locked", "Locked"}}
+}
+
+templ UsersPage(p Page, d UsersData) {
+	@Layout(p, "Users") {
+		<h1 class="text-2xl md:text-3xl font-bold">Users</h1>
+		<p class="muted mt-1">Search accounts, then open one to manage its status and roles.</p>
+		<form
+			id="user-filters"
+			class="surface mt-5 p-3 md:p-4 flex flex-col gap-3"
+			method="get"
+			action={ p.URL("/users") }
+			hx-get={ p.Path("/users") }
+			hx-target="#users-results"
+			hx-swap="outerHTML"
+			hx-push-url="true"
+			hx-trigger="input changed delay:300ms from:#q, change from:#user-filters, submit"
+		>
+			<label class="input w-full">
+				@iconSearch()
+				<span class="sr-only">Search users</span>
+				<input id="q" type="search" name="q" value={ d.Query } placeholder="Search by email or username" autocomplete="off"/>
+			</label>
+			<div class="flex flex-wrap gap-2" role="group" aria-label="Filter by status">
+				for _, f := range statusFilters() {
+					<label class="btn btn-sm has-checked:bg-primary has-checked:text-primary-content has-checked:border-primary has-focus-visible:outline-3 has-focus-visible:outline-primary">
+						<input class="sr-only" type="radio" name="status" value={ f.Value } checked?={ f.Value == d.Status }/>
+						{ f.Label }
+					</label>
+				}
+			</div>
+		</form>
+		@UsersResults(p, d)
+	}
+}
+
+// UsersResults is the swappable part of the list: the rows and the pager.
+templ UsersResults(p Page, d UsersData) {
+	<div id="users-results" class="mt-4">
+		if len(d.Users) == 0 {
+			<div class="surface p-8 text-center">
+				<strong class="block text-lg font-display">No users match that search</strong>
+				<span class="muted">Try a different name or clear the filters.</span>
+			</div>
+		} else {
+			<ul class="md:hidden space-y-3">
+				for _, u := range d.Users {
+					<li>
+						<a href={ p.URL("/users/" + u.ID) } class="surface p-4 flex gap-3 items-start">
+							<span class="avatar-initials size-11 text-sm" aria-hidden="true">{ userInitials(u) }</span>
+							<span class="min-w-0 flex-1">
+								<span class="block font-semibold">{ displayName(u) }</span>
+								<span class="block text-sm muted truncate">{ u.Email }</span>
+								<span class="flex flex-wrap gap-1 mt-2">
+									@statusChips(u, d.Now)
+								</span>
+								<span class="block text-xs muted mt-2">Active { relTime(u.LastActiveAt, d.Now) }</span>
+							</span>
+						</a>
+					</li>
+				}
+			</ul>
+			<div class="hidden md:block surface overflow-x-auto">
+				<table class="table">
+					<thead>
+						<tr>
+							<th scope="col">User</th>
+							<th scope="col">Status</th>
+							<th scope="col">Last active</th>
+							<th scope="col">Joined</th>
+							<th scope="col"><span class="sr-only">Actions</span></th>
+						</tr>
+					</thead>
+					<tbody>
+						for _, u := range d.Users {
+							<tr class="hover:bg-base-200/60">
+								<td>
+									<a href={ p.URL("/users/" + u.ID) } class="flex items-center gap-3 group">
+										<span class="avatar-initials size-10 text-sm" aria-hidden="true">{ userInitials(u) }</span>
+										<span class="min-w-0">
+											<span class="block font-medium group-hover:underline">{ displayName(u) }</span>
+											<span class="block text-sm muted">{ u.Email }</span>
+										</span>
+									</a>
+								</td>
+								<td>
+									<div class="flex flex-wrap gap-1">
+										@statusChips(u, d.Now)
+									</div>
+								</td>
+								<td class="text-sm muted whitespace-nowrap">{ relTime(u.LastActiveAt, d.Now) }</td>
+								<td class="text-sm muted whitespace-nowrap">{ fmtDate(u.CreatedAt) }</td>
+								<td class="text-right">
+									<a class="btn btn-sm" href={ p.URL("/users/" + u.ID) } aria-label={ "Manage " + displayName(u) }>Manage</a>
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		}
+		<div class="flex items-center justify-between mt-4">
+			<p class="text-sm muted">{ d.rangeText() }</p>
+			<div class="join" role="navigation" aria-label="Pagination">
+				if d.Page > 1 {
+					<a class="btn btn-sm join-item" href={ templ.URL(d.pageURL(p, d.Page-1)) } hx-get={ d.pageURL(p, d.Page-1) } hx-target="#users-results" hx-swap="outerHTML" hx-push-url="true">Previous</a>
+				} else {
+					<span class="btn btn-sm join-item btn-disabled" aria-disabled="true">Previous</span>
+				}
+				if d.HasMore {
+					<a class="btn btn-sm join-item" href={ templ.URL(d.pageURL(p, d.Page+1)) } hx-get={ d.pageURL(p, d.Page+1) } hx-target="#users-results" hx-swap="outerHTML" hx-push-url="true">Next</a>
+				} else {
+					<span class="btn btn-sm join-item btn-disabled" aria-disabled="true">Next</span>
+				}
+			</div>
+		</div>
+	</div>
+}
+
+templ statusChips(u *models.User, now time.Time) {
+	{{ s := statusOf(u, now) }}
+	<span class={ "chip", s.Class }>{ s.Label }</span>
+	if !u.EmailVerified {
+		<span class="chip chip-warn">Unverified</span>
+	}
+}

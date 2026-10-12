@@ -25,7 +25,10 @@ var demoUsers = []demoUser{
 // It is idempotent: existing accounts are never touched, so their passwords
 // are only ever logged once, at creation. This is a demo convenience, not a
 // pattern for a real deployment.
-func seed(ctx context.Context, auth *ezauth.EzAuth, adminEmail string) error {
+//
+// If adminPassword is set, the admin account gets that password instead of a
+// random one, which makes local development repeatable.
+func seed(ctx context.Context, auth *ezauth.EzAuth, adminEmail, adminPassword string) error {
 	role := auth.Config.AdminRole
 
 	if _, err := auth.Repo.RoleGetByName(ctx, role); err != nil {
@@ -34,7 +37,7 @@ func seed(ctx context.Context, auth *ezauth.EzAuth, adminEmail string) error {
 		}
 	}
 
-	adminUser, err := ensureUser(ctx, auth, demoUser{Email: adminEmail})
+	adminUser, err := ensureUser(ctx, auth, demoUser{Email: adminEmail}, adminPassword)
 	if err != nil {
 		return err
 	}
@@ -43,7 +46,7 @@ func seed(ctx context.Context, auth *ezauth.EzAuth, adminEmail string) error {
 	}
 
 	for _, du := range demoUsers {
-		if _, err := ensureUser(ctx, auth, du); err != nil {
+		if _, err := ensureUser(ctx, auth, du, ""); err != nil {
 			return err
 		}
 	}
@@ -52,13 +55,16 @@ func seed(ctx context.Context, auth *ezauth.EzAuth, adminEmail string) error {
 
 type userRef struct{ ID string }
 
-func ensureUser(ctx context.Context, auth *ezauth.EzAuth, du demoUser) (userRef, error) {
+func ensureUser(ctx context.Context, auth *ezauth.EzAuth, du demoUser, password string) (userRef, error) {
 	if u, err := auth.Repo.UserGetByEmail(ctx, du.Email); err == nil {
 		return userRef{ID: u.ID}, nil
 	}
-	password, err := randomPassword()
-	if err != nil {
-		return userRef{}, fmt.Errorf("generate password for %s: %w", du.Email, err)
+	generated := password == ""
+	if generated {
+		var err error
+		if password, err = randomPassword(); err != nil {
+			return userRef{}, fmt.Errorf("generate password for %s: %w", du.Email, err)
+		}
 	}
 	u, err := auth.Service.UserCreate(ctx, &service.RequestBasicAuth{
 		Email:     du.Email,
@@ -70,7 +76,11 @@ func ensureUser(ctx context.Context, auth *ezauth.EzAuth, du demoUser) (userRef,
 	if err != nil {
 		return userRef{}, fmt.Errorf("create user %s: %w", du.Email, err)
 	}
-	slog.Info("created user, save this password: it is shown only once", "email", du.Email, "password", password)
+	if generated {
+		slog.Info("created user, save this password: it is shown only once", "email", du.Email, "password", password)
+	} else {
+		slog.Info("created user with the configured password", "email", du.Email)
+	}
 	return userRef{ID: u.ID}, nil
 }
 

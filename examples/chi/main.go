@@ -53,7 +53,7 @@ func run() error {
 	if err := auth.Migrate(); err != nil {
 		return err
 	}
-	if err := seed(ctx, auth, getenv("APP_ADMIN_EMAIL", "admin@example.com")); err != nil {
+	if err := seed(ctx, auth, getenv("APP_ADMIN_EMAIL", "admin@example.com"), os.Getenv("APP_ADMIN_PASSWORD")); err != nil {
 		return err
 	}
 

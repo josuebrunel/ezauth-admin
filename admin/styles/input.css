@@ -1,5 +1,161 @@
 @import "tailwindcss" source(none);
-@plugin "./daisyui.mjs" {
-  themes: light --default, dark --prefersdark;
-}
 @source "../views/*.templ";
+
+/* Themes: every text/background pair is checked against WCAG 2.1 AA (4.5:1). */
+@plugin "./daisyui.mjs" {
+  themes: false;
+}
+@plugin "./daisyui-theme.mjs" {
+  name: "ezlight";
+  default: true;
+  color-scheme: light;
+  --color-base-100: #ffffff;
+  --color-base-200: #f3f4fb;
+  --color-base-300: #dfe1f0;
+  --color-base-content: #1a1c3b;
+  --color-primary: #4338ca;
+  --color-primary-content: #ffffff;
+  --color-secondary: #0f766e;
+  --color-secondary-content: #ffffff;
+  --color-accent: #7c3aed;
+  --color-accent-content: #ffffff;
+  --color-neutral: #1f2347;
+  --color-neutral-content: #f3f4fb;
+  --color-info: #0369a1;
+  --color-info-content: #ffffff;
+  --color-success: #15803d;
+  --color-success-content: #ffffff;
+  --color-warning: #b45309;
+  --color-warning-content: #ffffff;
+  --color-error: #b91c1c;
+  --color-error-content: #ffffff;
+  --radius-selector: 0.5rem;
+  --radius-field: 0.625rem;
+  --radius-box: 1rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+@plugin "./daisyui-theme.mjs" {
+  name: "ezdark";
+  prefersdark: true;
+  color-scheme: dark;
+  --color-base-100: #14152e;
+  --color-base-200: #1b1d3d;
+  --color-base-300: #2c2f5a;
+  --color-base-content: #e8e9f8;
+  --color-primary: #a5b4fc;
+  --color-primary-content: #17183a;
+  --color-secondary: #5eead4;
+  --color-secondary-content: #04302b;
+  --color-accent: #c4b5fd;
+  --color-accent-content: #1e1245;
+  --color-neutral: #272a55;
+  --color-neutral-content: #e8e9f8;
+  --color-info: #7dd3fc;
+  --color-info-content: #052e45;
+  --color-success: #86efac;
+  --color-success-content: #052e16;
+  --color-warning: #fcd34d;
+  --color-warning-content: #3b2200;
+  --color-error: #fca5a5;
+  --color-error-content: #450a0a;
+  --radius-selector: 0.5rem;
+  --radius-field: 0.625rem;
+  --radius-box: 1rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+/* Fonts are embedded, so the panel makes no third-party requests. */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("fonts/inter-latin-wght.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Sora";
+  font-style: normal;
+  font-weight: 100 800;
+  font-display: swap;
+  src: url("fonts/sora-latin-wght.woff2") format("woff2");
+}
+
+@theme {
+  --font-display: "Sora", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+[data-theme="ezlight"] {
+  --muted: #4a4d75;
+  --chip-ok-bg: #dcfce7;   --chip-ok-fg: #14532d;
+  --chip-bad-bg: #fee2e2;  --chip-bad-fg: #7f1d1d;
+  --chip-warn-bg: #fef3c7; --chip-warn-fg: #78350f;
+  --chip-role-bg: #e0e7ff; --chip-role-fg: #312e81;
+}
+[data-theme="ezdark"] {
+  --muted: #b4b7e0;
+  --chip-ok-bg: #14532d;   --chip-ok-fg: #dcfce7;
+  --chip-bad-bg: #7f1d1d;  --chip-bad-fg: #fee2e2;
+  --chip-warn-bg: #78350f; --chip-warn-fg: #fef3c7;
+  --chip-role-bg: #312e81; --chip-role-fg: #e0e7ff;
+}
+
+html { font-family: var(--font-sans); }
+body { background: var(--color-base-100); color: var(--color-base-content); min-height: 100vh; }
+h1, h2, h3, .font-display { font-family: var(--font-display); letter-spacing: -0.01em; }
+.muted { color: var(--muted); }
+
+/* Visible keyboard focus everywhere. */
+:focus-visible { outline: 3px solid var(--color-primary); outline-offset: 2px; }
+
+/* Depth: a soft mesh gradient behind everything. */
+.mesh { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+.mesh::before, .mesh::after { content: ""; position: absolute; border-radius: 50%; filter: blur(80px); opacity: .5; }
+.mesh::before { width: 38rem; height: 38rem; top: -14rem; right: -10rem; background: radial-gradient(circle, color-mix(in srgb, var(--color-primary) 38%, transparent), transparent 70%); }
+.mesh::after { width: 32rem; height: 32rem; bottom: -12rem; left: 8rem; background: radial-gradient(circle, color-mix(in srgb, var(--color-secondary) 30%, transparent), transparent 70%); }
+
+/* Glass surfaces. */
+.glass-bar { background: color-mix(in srgb, var(--color-base-100) 78%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--color-base-300); }
+.surface { background: color-mix(in srgb, var(--color-base-100) 86%, transparent); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid var(--color-base-300); border-radius: var(--radius-box); }
+
+/* Status chips with checked contrast. */
+.chip { display: inline-flex; align-items: center; gap: .35rem; font-size: .75rem; font-weight: 600; padding: .15rem .6rem; border-radius: 999px; white-space: nowrap; }
+.chip-ok { background: var(--chip-ok-bg); color: var(--chip-ok-fg); }
+.chip-bad { background: var(--chip-bad-bg); color: var(--chip-bad-fg); }
+.chip-warn { background: var(--chip-warn-bg); color: var(--chip-warn-fg); }
+.chip-role { background: var(--chip-role-bg); color: var(--chip-role-fg); }
+
+.nav-link { display: flex; align-items: center; gap: .75rem; padding: .625rem .75rem; border-radius: var(--radius-field); font-weight: 500; color: var(--color-base-content); transition: background-color .2s ease, color .2s ease; }
+.nav-link:hover { background: var(--color-base-300); }
+.nav-link[aria-current="page"] { background: var(--color-primary); color: var(--color-primary-content); }
+
+.avatar-initials { display: grid; place-items: center; border-radius: 999px; font-weight: 600; font-family: var(--font-display); background: var(--color-primary); color: var(--color-primary-content); flex: none; }
+.stat-value { font-family: var(--font-display); font-weight: 700; font-size: 1.875rem; line-height: 1.1; }
+table th { font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 600; }
+
+.tab-btn { border-bottom: 2px solid transparent; padding: .75rem 1rem; color: var(--muted); transition: color .2s ease; white-space: nowrap; }
+.tab-btn:hover { color: var(--color-base-content); }
+.tab-btn[aria-current="page"], .tab-btn[aria-selected="true"] { border-bottom-color: var(--color-primary); color: var(--color-base-content); font-weight: 600; }
+
+.htmx-request .htmx-indicator, .htmx-request.htmx-indicator { opacity: 1; }
+.htmx-indicator { opacity: 0; transition: opacity .2s ease; }
+
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.toast > * { animation: toast-in .2s ease; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+.theme-icon-sun { display: none; }
+[data-theme="ezdark"] .theme-icon-sun { display: inline; }
+[data-theme="ezdark"] .theme-icon-moon { display: none; }
+
+/* DaisyUI draws the focus ring on the wrapper label; the global outline on the
+   inner control would draw a second box inside it. */
+.input input:focus-visible, .select select:focus-visible { outline: none; }

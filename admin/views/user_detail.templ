@@ -1,0 +1,298 @@
+package views
+
+import (
+	"time"
+
+	"github.com/josuebrunel/ezauth/pkg/db/models"
+	"github.com/josuebrunel/ezauth/pkg/service"
+)
+
+// UserDetail is everything the user page needs to render.
+type UserDetail struct {
+	User     *models.User
+	Roles    []*models.Role       // granted to this user
+	AllRoles []*models.Role       // every role that exists
+	Perms    []*models.Permission // effective, through Roles
+	Audit    []*models.AuditLog
+	History  []service.AuthHistoryEntry
+	Notes    string
+	Tab      string // "overview", "roles" or "activity"
+	Self     bool   // the admin is looking at their own account
+	Now      time.Time
+}
+
+// grantable returns the roles this user doesn't hold yet.
+func (d UserDetail) grantable() []*models.Role {
+	held := map[string]bool{}
+	for _, r := range d.Roles {
+		held[r.Name] = true
+	}
+	var out []*models.Role
+	for _, r := range d.AllRoles {
+		if !held[r.Name] {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+func (d UserDetail) base(p Page) string { return p.Path("/users/" + d.User.ID) }
+
+type userTab struct{ Key, Label string }
+
+func userTabs() []userTab {
+	return []userTab{{"overview", "Overview"}, {"roles", "Roles and access"}, {"activity", "Activity"}}
+}
+
+func tabHref(p Page, d UserDetail, key string) templ.SafeURL {
+	if key == "overview" {
+		return templ.URL(d.base(p))
+	}
+	return templ.URL(d.base(p) + "?tab=" + key)
+}
+
+templ UserDetailPage(p Page, d UserDetail) {
+	@Layout(p, displayName(d.User)) {
+		<a href={ p.URL("/users") } class="link text-sm font-medium inline-flex items-center gap-1">
+			@iconChevronLeft()
+			All users
+		</a>
+		@UserHeader(p, d)
+		<nav class="flex border-b border-base-300 mt-6 overflow-x-auto" aria-label="User sections">
+			for _, t := range userTabs() {
+				<a
+					class="tab-btn"
+					href={ tabHref(p, d, t.Key) }
+					if t.Key == d.Tab {
+						aria-current="page"
+					}
+				>{ t.Label }</a>
+			}
+		</nav>
+		<div class="mt-5 space-y-4">
+			switch d.Tab {
+				case "roles":
+					@UserRolesPanel(p, d)
+				case "activity":
+					@userActivity(d)
+				default:
+					@userOverview(p, d)
+			}
+		</div>
+	}
+}
+
+// UserHeader is the name, status and primary actions. It is swapped in place
+// when the account is suspended or reactivated.
+templ UserHeader(p Page, d UserDetail) {
+	{{ suspended := isSuspended(d.User, d.Now) }}
+	<div id="user-header" class="flex flex-col md:flex-row md:items-center gap-4 mt-4">
+		<div class="flex items-center gap-4 flex-1 min-w-0">
+			<div class="avatar-initials size-16 text-xl" aria-hidden="true">{ userInitials(d.User) }</div>
+			<div class="min-w-0">
+				<h1 class="text-2xl md:text-3xl font-bold truncate">{ displayName(d.User) }</h1>
+				<p class="muted truncate">{ d.User.Email }</p>
+				<div class="flex flex-wrap gap-2 mt-2">
+					@statusChips(d.User, d.Now)
+					if !d.User.IsLocal() {
+						<span class="chip chip-role">{ d.User.Provider }</span>
+					}
+				</div>
+			</div>
+		</div>
+		if d.Self {
+			<p class="text-sm muted md:max-w-xs">This is your account, so suspending or impersonating is turned off.</p>
+		} else {
+			<div class="flex flex-wrap gap-2">
+				<form method="post" action={ templ.URL(d.base(p) + "/impersonate") }>
+					<button class="btn btn-primary" type="submit">Impersonate</button>
+				</form>
+				if d.User.IsActive || !suspended {
+					<form
+						method="post"
+						action={ templ.URL(d.base(p) + "/suspend") }
+						hx-post={ d.base(p) + "/suspend" }
+						hx-target="#user-header"
+						hx-swap="outerHTML"
+						hx-confirm={ "Suspend " + displayName(d.User) + "? They won't be able to sign in." }
+					>
+						<button class="btn" type="submit" disabled?={ !d.User.IsActive }>Suspend</button>
+					</form>
+				} else {
+					<form
+						method="post"
+						action={ templ.URL(d.base(p) + "/reactivate") }
+						hx-post={ d.base(p) + "/reactivate" }
+						hx-target="#user-header"
+						hx-swap="outerHTML"
+					>
+						<button class="btn btn-secondary" type="submit">Reactivate</button>
+					</form>
+				}
+			</div>
+		}
+	</div>
+}
+
+templ field(label string, value string) {
+	<div>
+		<dt class="text-xs font-semibold uppercase tracking-wide muted">{ label }</dt>
+		<dd class="mt-0.5 break-words">{ value }</dd>
+	</div>
+}
+
+templ userOverview(p Page, d UserDetail) {
+	<article class="surface p-5">
+		<h2 class="text-lg font-semibold">Profile</h2>
+		<dl class="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4 mt-4">
+			@field("Username", orNotSet(d.User.Username))
+			@field("Phone", orNotSet(d.User.Phone))
+			@field("Locale", orNotSet(d.User.Locale))
+			@field("Time zone", orNotSet(d.User.Timezone))
+			@field("Joined", fmtDate(d.User.CreatedAt))
+			@field("Last sign-in", fmtTimePtr(d.User.LastLoginAt))
+			@field("Last active", relTime(d.User.LastActiveAt, d.Now))
+			if d.User.EmailVerified {
+				@field("Email", "Verified")
+			} else {
+				@field("Email", "Not verified yet")
+			}
+			@field("Sign-in method", d.User.Provider)
+		</dl>
+	</article>
+	<article class="surface p-5">
+		<h2 class="text-lg font-semibold">Admin notes</h2>
+		<p class="text-sm muted mt-1">Only admins see these. The user can't read or edit them.</p>
+		<form method="post" action={ templ.URL(d.base(p) + "/notes") } hx-post={ d.base(p) + "/notes" } hx-swap="none">
+			<label class="sr-only" for="notes">Admin notes</label>
+			<textarea id="notes" name="notes" class="textarea w-full mt-3" rows="3" maxlength="2000" placeholder="Add a note, for example: asked for a refund on Oct 3">{ d.Notes }</textarea>
+			<button class="btn btn-sm mt-3" type="submit">Save note</button>
+		</form>
+	</article>
+}
+
+// UserRolesPanel lists granted roles with revoke buttons, a grant form and
+// the permissions the roles add up to. Swapped in place on grant or revoke.
+templ UserRolesPanel(p Page, d UserDetail) {
+	{{ free := d.grantable() }}
+	<div id="roles-panel" class="space-y-4">
+		<article class="surface p-5">
+			<h2 class="text-lg font-semibold">Roles</h2>
+			if len(d.Roles) == 0 {
+				<p class="muted text-sm mt-3">No roles granted yet.</p>
+			} else {
+				<ul class="flex flex-wrap gap-2 mt-3">
+					for _, r := range d.Roles {
+						<li class="chip chip-role !text-sm !py-1">
+							{ r.Name }
+							<form
+								method="post"
+								action={ templ.URL(d.base(p) + "/roles/revoke") }
+								hx-post={ d.base(p) + "/roles/revoke" }
+								hx-target="#roles-panel"
+								hx-swap="outerHTML"
+								hx-confirm={ "Revoke " + r.Name + " from " + displayName(d.User) + "?" }
+							>
+								<input type="hidden" name="role" value={ r.Name }/>
+								<button type="submit" class="ml-1 rounded-full size-5 grid place-items-center hover:bg-base-300/60" aria-label={ "Revoke " + r.Name }>
+									@iconClose()
+								</button>
+							</form>
+						</li>
+					}
+				</ul>
+			}
+			if len(free) > 0 {
+				<form
+					class="flex flex-col sm:flex-row gap-2 mt-4"
+					method="post"
+					action={ templ.URL(d.base(p) + "/roles/grant") }
+					hx-post={ d.base(p) + "/roles/grant" }
+					hx-target="#roles-panel"
+					hx-swap="outerHTML"
+				>
+					<label class="select w-full sm:w-64">
+						<span class="sr-only">Role to grant</span>
+						<select name="role" required>
+							for _, r := range free {
+								<option value={ r.Name }>{ r.Name }</option>
+							}
+						</select>
+					</label>
+					<button class="btn btn-primary" type="submit">Grant role</button>
+				</form>
+			} else if len(d.AllRoles) == 0 {
+				<p class="text-sm muted mt-4">No roles exist yet.</p>
+			} else {
+				<p class="text-sm muted mt-4">This user already holds every role.</p>
+			}
+		</article>
+		<article class="surface p-5">
+			<h2 class="text-lg font-semibold">Effective permissions</h2>
+			<p class="text-sm muted mt-1">Granted through the roles above.</p>
+			if len(d.Perms) == 0 {
+				<p class="muted text-sm mt-3">No permissions. Grant a role to add some.</p>
+			} else {
+				<ul class="flex flex-wrap gap-2 mt-3">
+					for _, perm := range d.Perms {
+						<li><code class="chip chip-role font-mono">{ perm.Name }</code></li>
+					}
+				</ul>
+			}
+		</article>
+	</div>
+}
+
+templ userActivity(d UserDetail) {
+	<article class="surface p-5">
+		<h2 class="text-lg font-semibold">Audit log</h2>
+		if len(d.Audit) == 0 {
+			<p class="muted text-sm mt-3">No audit events yet.</p>
+		} else {
+			<ol class="mt-4 space-y-4 border-l border-base-300 ml-2">
+				for _, e := range d.Audit {
+					<li class="relative pl-5">
+						<span class="absolute -left-[5px] top-1.5 size-2.5 rounded-full bg-primary" aria-hidden="true"></span>
+						<p class="font-medium"><code>{ e.EventType }</code></p>
+						<p class="text-xs muted">{ fmtDateTime(e.CreatedAt) }</p>
+					</li>
+				}
+			</ol>
+		}
+	</article>
+	<article class="surface p-5 overflow-x-auto">
+		<h2 class="text-lg font-semibold">Sessions and tokens</h2>
+		if len(d.History) == 0 {
+			<p class="muted text-sm mt-3">No token history yet.</p>
+		} else {
+			<table class="table mt-2">
+				<thead>
+					<tr>
+						<th scope="col">Type</th>
+						<th scope="col">Created</th>
+						<th scope="col">Expires</th>
+						<th scope="col">State</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, h := range d.History {
+						<tr>
+							<td>{ h.TokenType }</td>
+							<td class="whitespace-nowrap">{ fmtDateTime(h.CreatedAt) }</td>
+							<td class="whitespace-nowrap">{ fmtDate(h.ExpiresAt) }</td>
+							<td>
+								if h.Revoked {
+									<span class="chip chip-bad">Revoked</span>
+								} else if h.ExpiresAt.Before(d.Now) {
+									<span class="chip chip-warn">Expired</span>
+								} else {
+									<span class="chip chip-ok">Active</span>
+								}
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		}
+	</article>
+}

@@ -3,15 +3,31 @@ package views
 import "strconv"
 
 templ ErrorPage(p Page, code int, message string) {
-	@Layout(p, "Error "+strconv.Itoa(code), "") {
-		<div class="card bg-base-200 max-w-xl">
-			<div class="card-body">
-				<h1 class="card-title">Error { strconv.Itoa(code) }</h1>
-				<p>{ message }</p>
-				<div class="card-actions">
-					<a href={ p.URL("/") } class="btn btn-primary">Back to dashboard</a>
-				</div>
-			</div>
+	@Layout(p, "Error "+strconv.Itoa(code)) {
+		<div class="surface p-6 max-w-xl">
+			<h1 class="text-xl font-bold">Error { strconv.Itoa(code) }</h1>
+			<p class="mt-2">{ message }</p>
+			<a href={ p.URL("/") } class="btn btn-primary mt-4">Back to dashboard</a>
+		</div>
+	}
+}
+
+// ImpersonatingPage tells an admin who is impersonating someone why the panel
+// is closed to them, and how to get back to their own session.
+templ ImpersonatingPage(p Page) {
+	@Layout(p, "Impersonating") {
+		<div class="surface p-6 max-w-xl">
+			<h1 class="text-xl font-bold">You're impersonating a user</h1>
+			<p class="mt-2">
+				You're browsing as
+				if p.User != nil {
+					<strong>{ displayName(p.User) }</strong>,
+				}
+				who isn't an admin, so the panel is closed. Stop impersonating to get back to your own account.
+			</p>
+			<form method="post" action={ p.URL("/impersonate/stop") } class="mt-4">
+				<button type="submit" class="btn btn-primary">Stop impersonating</button>
+			</form>
 		</div>
 	}
 }

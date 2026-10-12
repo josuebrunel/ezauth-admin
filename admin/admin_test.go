@@ -26,6 +26,7 @@ func newAuth(t *testing.T) *ezauth.EzAuth {
 	t.Helper()
 	t.Setenv("EZAUTH_API_KEY", "test-api-key")
 	t.Setenv("EZAUTH_JWT_SECRET", "test-jwt-secret-at-least-32-characters-long")
+	t.Setenv("EZAUTH_HASHING_BCRYPT_COST", "4") // correctness doesn't need slow hashes
 	t.Setenv("EZAUTH_DB_DIALECT", "sqlite")
 	t.Setenv("EZAUTH_DB_DSN", "file:"+filepath.Join(t.TempDir(), "test.db"))
 	cfg, err := ezconfig.LoadConfig()

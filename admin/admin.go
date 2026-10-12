@@ -13,6 +13,7 @@ package admin
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -62,6 +63,17 @@ func (p *Panel) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(staticSub())))
 	mux.Handle("GET /{$}", p.handle(p.dashboard))
+	mux.Handle("GET /users", p.handle(p.usersList))
+	mux.Handle("GET /users/{id}", p.handle(p.userDetail))
+	mux.Handle("POST /users/{id}/suspend", p.handle(p.setActive(false)))
+	mux.Handle("POST /users/{id}/reactivate", p.handle(p.setActive(true)))
+	mux.Handle("POST /users/{id}/impersonate", p.handle(p.userImpersonate))
+	mux.Handle("POST /users/{id}/notes", p.handle(p.userNotes))
+	mux.Handle("POST /users/{id}/roles/grant", p.handle(p.roleGrant))
+	mux.Handle("POST /users/{id}/roles/revoke", p.handle(p.roleRevoke))
+	mux.Handle("/", p.handle(func(http.ResponseWriter, *http.Request) error {
+		return NewHTTPError(http.StatusNotFound, "That page doesn't exist.")
+	}))
 
 	guarded := p.guard(mux)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -90,22 +102,44 @@ func (p *Panel) stripBase(path string) string {
 
 // guard denies by default: login, then the admin role, then CSRF for
 // state-changing methods (safe methods always pass).
+//
+// While an admin impersonates someone, the session user is the target, who is
+// normally not an admin. The panel stays closed to them, except for a page
+// that explains why and a button to stop impersonating.
 func (p *Panel) guard(next http.Handler) http.Handler {
-	h := csrf.Protect(nil)(next)
-	h = p.auth.RequireRole(p.role)(h)
-	return p.auth.LoginRequiredMiddleware(h)
+	protected := csrf.Protect(nil)(p.auth.RequireRole(p.role)(next))
+	stop := csrf.Protect(nil)(http.HandlerFunc(p.auth.Handler.FormStopImpersonation))
+
+	return p.auth.LoginRequiredMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, impersonating := ezauth.CurrentImpersonatorID(r.Context()); impersonating {
+			if r.Method == http.MethodPost && r.URL.Path == "/impersonate/stop" {
+				stop.ServeHTTP(w, r)
+				return
+			}
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.WriteHeader(http.StatusForbidden)
+			if err := views.ImpersonatingPage(p.page(r, "")).Render(r.Context(), w); err != nil {
+				slog.ErrorContext(r.Context(), "admin impersonating page render failed", "err", err)
+			}
+			return
+		}
+		protected.ServeHTTP(w, r)
+	}))
 }
 
 // page builds the data every full page needs.
-func (p *Panel) page(r *http.Request) views.Page {
+func (p *Panel) page(r *http.Request, active string, crumbs ...views.Crumb) views.Page {
 	user, _ := ezauth.GetUser(r.Context())
 	return views.Page{
 		AppName:  p.appName,
 		BasePath: p.basePath,
 		User:     user,
+		Active:   active,
+		Crumbs:   crumbs,
 	}
 }
 
 func (p *Panel) dashboard(w http.ResponseWriter, r *http.Request) error {
-	return views.Dashboard(p.page(r)).Render(r.Context(), w)
+	pg := p.page(r, "dashboard", views.Crumb{Label: "Dashboard"})
+	return render(w, r, http.StatusOK, views.Dashboard(pg))
 }

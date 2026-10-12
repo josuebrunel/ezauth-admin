@@ -48,8 +48,20 @@ func (p *Panel) renderError(w http.ResponseWriter, r *http.Request, err error) {
 			"method", r.Method, "path", r.URL.Path, "status", code, "err", err)
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Add("Vary", "HX-Request")
+
+	// An htmx action answers with a toast and leaves the page as it is.
+	if isHTMX(r) {
+		w.Header().Set("HX-Reswap", "none")
+		w.WriteHeader(code)
+		if rerr := views.Toast("error", message).Render(r.Context(), w); rerr != nil {
+			slog.ErrorContext(r.Context(), "admin error toast render failed", "err", rerr)
+		}
+		return
+	}
 	w.WriteHeader(code)
-	if rerr := views.ErrorPage(p.page(r), code, message).Render(r.Context(), w); rerr != nil {
+	pg := p.page(r, "", views.Crumb{Label: "Error"})
+	if rerr := views.ErrorPage(pg, code, message).Render(r.Context(), w); rerr != nil {
 		slog.ErrorContext(r.Context(), "admin error page render failed", "err", rerr)
 	}
 }
