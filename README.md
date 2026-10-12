@@ -4,6 +4,8 @@
 
 Users, roles, permissions, an audit log and a dashboard, running on your existing EzAuth instance and database. No extra service to deploy, no migrations of its own.
 
+**Live demo: <https://ezauth-admin.onrender.com/admin/>**, sign in as `admin@example.com` with `demo-admin-password`.
+
 [Quick start](#quick-start) · [Try the demo](#try-the-demo) · [What you get](#what-you-get) · [Options](#options) · [Security](#security) · [Mounting guide](docs/mounting.md)
 
 > **Status:** v0.1.0. Early, but complete: everything below works. Needs EzAuth v0.31.0 or newer.
@@ -106,13 +108,9 @@ That's it. Something not working? The [mounting guide](docs/mounting.md) has a t
 
 ## Try the demo
 
-Want a look before you wire anything? Docker runs a small example app with the panel mounted, on SQLite, with an admin and four demo users already created:
+**Online:** <https://ezauth-admin.onrender.com/admin/>
 
-```sh
-docker compose up --build
-```
-
-Open <http://localhost:8080> and sign in:
+Sign in with one of these:
 
 | Who | Email | Password |
 |---|---|---|
@@ -121,7 +119,17 @@ Open <http://localhost:8080> and sign in:
 
 Sign in as alice and open `/admin/` to see what a non-admin gets: a 403.
 
-Those passwords are for your own machine only. No Docker? `make run-example` does the same with `go run`, and logs random passwords once. The example lives in [`examples/chi`](examples/chi).
+It's a shared demo on a free server, so the first load can be slow if it's asleep, and everything resets whenever it restarts. Please be kind to it.
+
+**On your machine:** Docker runs the same example app, with the panel mounted, on SQLite, and the same admin and four demo users already created:
+
+```sh
+docker compose up --build
+```
+
+Then open <http://localhost:8080> and use the same logins. No Docker? `make run-example` does the same with `go run`, and logs random passwords once. The example lives in [`examples/chi`](examples/chi).
+
+These passwords are for the demo only. Use your own, and your own `EZAUTH_*` secrets, for anything real.
 
 ## What you get
 
