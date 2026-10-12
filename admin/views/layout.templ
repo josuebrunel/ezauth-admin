@@ -30,11 +30,13 @@ type navItem struct {
 	Path  string
 }
 
-// navItems grows as sections land (roles, audit log).
+// navItems grows as sections land (audit log).
 func navItems() []navItem {
 	return []navItem{
 		{Key: "dashboard", Label: "Dashboard", Path: "/"},
 		{Key: "users", Label: "Users", Path: "/users"},
+		{Key: "roles", Label: "Roles", Path: "/roles"},
+		{Key: "permissions", Label: "Permissions", Path: "/permissions"},
 	}
 }
 
@@ -57,6 +59,10 @@ templ icon(key string) {
 			@iconDashboard()
 		case "users":
 			@iconUsers()
+		case "roles":
+			@iconRoles()
+		case "permissions":
+			@iconLock()
 	}
 }
 

@@ -6,7 +6,7 @@ If you use EzAuth as a library, you'll build an admin panel at some point. Every
 
 So I built it once. Mount it, log in as an admin, get on with your product.
 
-> **Status:** early. The users section is complete (list, search, detail, edit, delete, suspend, roles, notes, impersonate). Roles and permissions, the audit log and the dashboard are next, tracked in [the issues](https://github.com/josuebrunel/ezauth-admin/issues). Nothing is released yet.
+> **Status:** early. Users, roles and permissions are done. The audit log and the dashboard are next, tracked in [the issues](https://github.com/josuebrunel/ezauth-admin/issues). Nothing is released yet.
 
 ## Quick start
 
@@ -29,7 +29,7 @@ It's a plain `http.Handler`, so it isn't tied to chi. But chi is what I build an
 ## What you get
 
 - **Users:** search, filter by status, paginate, see a profile, suspend, reactivate, edit the profile, delete (with a typed-email confirmation), grant and revoke roles, keep admin-only notes, impersonate.
-- **Roles and permissions:** create them, grant them, revoke them.
+- **Roles and permissions:** create and delete them, give permissions to roles, give roles to users. The role that opens the panel can't be deleted.
 - **Audit log:** who did what, and when.
 - **Dashboard:** user counts, recent sign-ups, recent activity.
 
@@ -63,6 +63,6 @@ make css           # only if you change the styles
 
 MIT, same as EzAuth.
 
-**What works:** mounting, the default-deny guard, light and dark themes, and the whole users section.
+**What works:** mounting, the default-deny guard, light and dark themes, users, roles and permissions.
 
-**What doesn't (yet):** roles and permissions management, the audit log and the dashboard. Follow along in the issues.
+**What doesn't (yet):** the audit log and the dashboard. Follow along in the issues.

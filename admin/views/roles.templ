@@ -1,0 +1,131 @@
+package views
+
+import "github.com/josuebrunel/ezauth/pkg/db/models"
+
+// RoleRow is one role with the permissions it holds and the ones it could
+// still be given.
+type RoleRow struct {
+	Role      *models.Role
+	Perms     []*models.Permission
+	Grantable []*models.Permission
+}
+
+// RolesData is everything the roles page needs.
+type RolesData struct {
+	Rows []RoleRow
+	// AdminRole is the role that opens the panel. It can't be deleted from
+	// here, or nobody could get back in.
+	AdminRole string
+}
+
+templ RolesPage(p Page, d RolesData) {
+	@Layout(p, "Roles") {
+		<h1 class="text-2xl md:text-3xl font-bold">Roles</h1>
+		<p class="muted mt-1">A role bundles permissions. Give a role to a user from their page.</p>
+		<form
+			class="surface mt-5 p-4 md:p-5 grid md:grid-cols-[1fr_2fr_auto] gap-3 items-end"
+			method="post"
+			action={ p.URL("/roles") }
+			hx-post={ p.Path("/roles") }
+			hx-target="#roles-region"
+			hx-swap="outerHTML"
+			hx-on::after-request="if (event.detail.successful) this.reset()"
+		>
+			<div>
+				<label class="block text-sm font-medium" for="role-name">Name</label>
+				<input id="role-name" name="name" class="input w-full mt-1" required minlength="2" maxlength="50" pattern="[A-Za-z0-9][A-Za-z0-9._:\-]{1,49}" placeholder="support" autocomplete="off"/>
+			</div>
+			<div>
+				<label class="block text-sm font-medium" for="role-desc">Description</label>
+				<input id="role-desc" name="description" class="input w-full mt-1" maxlength="200" placeholder="Answers customer tickets" autocomplete="off"/>
+			</div>
+			<button class="btn btn-primary" type="submit">Create role</button>
+		</form>
+		@RolesRegion(p, d)
+	}
+}
+
+// RolesRegion is the swappable list of roles.
+templ RolesRegion(p Page, d RolesData) {
+	<div id="roles-region" class="mt-4 space-y-3">
+		if len(d.Rows) == 0 {
+			<div class="surface p-8 text-center">
+				<strong class="block text-lg font-display">No roles yet</strong>
+				<span class="muted">Create the first one above, for example support or billing.</span>
+			</div>
+		}
+		for _, row := range d.Rows {
+			<article class="surface p-5" aria-labelledby={ "role-" + row.Role.ID }>
+				<div class="flex flex-wrap items-start justify-between gap-3">
+					<div class="min-w-0">
+						<h2 id={ "role-" + row.Role.ID } class="text-lg font-semibold break-all">
+							{ row.Role.Name }
+							if row.Role.Name == d.AdminRole {
+								<span class="chip chip-ok ml-2 align-middle">Opens this panel</span>
+							}
+						</h2>
+						if row.Role.Description != "" {
+							<p class="text-sm muted mt-1">{ row.Role.Description }</p>
+						}
+					</div>
+					if row.Role.Name != d.AdminRole {
+						<form
+							method="post"
+							action={ p.URL("/roles/" + row.Role.ID + "/delete") }
+							hx-post={ p.Path("/roles/" + row.Role.ID + "/delete") }
+							hx-target="#roles-region"
+							hx-swap="outerHTML"
+							hx-confirm={ "Delete the " + row.Role.Name + " role? Everyone who has it loses it." }
+						>
+							<button class="btn btn-sm btn-error btn-outline" type="submit">Delete role</button>
+						</form>
+					}
+				</div>
+				<h3 class="text-sm font-semibold mt-4">Permissions</h3>
+				if len(row.Perms) == 0 {
+					<p class="text-sm muted mt-1">None yet.</p>
+				} else {
+					<ul class="flex flex-wrap gap-2 mt-2">
+						for _, perm := range row.Perms {
+							<li class="chip chip-role !text-sm !py-1">
+								<code class="font-mono">{ perm.Name }</code>
+								<form
+									method="post"
+									action={ p.URL("/roles/" + row.Role.ID + "/permissions/revoke") }
+									hx-post={ p.Path("/roles/" + row.Role.ID + "/permissions/revoke") }
+									hx-target="#roles-region"
+									hx-swap="outerHTML"
+								>
+									<input type="hidden" name="permission" value={ perm.Name }/>
+									<button type="submit" class="ml-1 rounded-full size-5 grid place-items-center hover:bg-base-300/60" aria-label={ "Remove " + perm.Name + " from " + row.Role.Name }>
+										@iconClose()
+									</button>
+								</form>
+							</li>
+						}
+					</ul>
+				}
+				if len(row.Grantable) > 0 {
+					<form
+						class="flex flex-col sm:flex-row gap-2 mt-3"
+						method="post"
+						action={ p.URL("/roles/" + row.Role.ID + "/permissions/grant") }
+						hx-post={ p.Path("/roles/" + row.Role.ID + "/permissions/grant") }
+						hx-target="#roles-region"
+						hx-swap="outerHTML"
+					>
+						<label class="select w-full sm:w-72">
+							<span class="sr-only">Permission to add to { row.Role.Name }</span>
+							<select name="permission" required>
+								for _, perm := range row.Grantable {
+									<option value={ perm.Name }>{ perm.Name }</option>
+								}
+							</select>
+						</label>
+						<button class="btn btn-sm sm:btn-md" type="submit">Add permission</button>
+					</form>
+				}
+			</article>
+		}
+	</div>
+}

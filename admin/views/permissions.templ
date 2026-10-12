@@ -1,0 +1,79 @@
+package views
+
+import "github.com/josuebrunel/ezauth/pkg/db/models"
+
+// PermissionsData is everything the permissions page needs.
+type PermissionsData struct {
+	Perms []*models.Permission
+}
+
+templ PermissionsPage(p Page, d PermissionsData) {
+	@Layout(p, "Permissions") {
+		<h1 class="text-2xl md:text-3xl font-bold">Permissions</h1>
+		<p class="muted mt-1">The things your app checks, like invoices.read. Add them to roles on the Roles page.</p>
+		<form
+			class="surface mt-5 p-4 md:p-5 grid md:grid-cols-[1fr_2fr_auto] gap-3 items-end"
+			method="post"
+			action={ p.URL("/permissions") }
+			hx-post={ p.Path("/permissions") }
+			hx-target="#permissions-region"
+			hx-swap="outerHTML"
+			hx-on::after-request="if (event.detail.successful) this.reset()"
+		>
+			<div>
+				<label class="block text-sm font-medium" for="perm-name">Name</label>
+				<input id="perm-name" name="name" class="input w-full mt-1" required minlength="2" maxlength="50" pattern="[A-Za-z0-9][A-Za-z0-9._:\-]{1,49}" placeholder="invoices.read" autocomplete="off"/>
+			</div>
+			<div>
+				<label class="block text-sm font-medium" for="perm-desc">Description</label>
+				<input id="perm-desc" name="description" class="input w-full mt-1" maxlength="200" placeholder="View invoices" autocomplete="off"/>
+			</div>
+			<button class="btn btn-primary" type="submit">Create permission</button>
+		</form>
+		@PermissionsRegion(p, d)
+	}
+}
+
+// PermissionsRegion is the swappable list of permissions.
+templ PermissionsRegion(p Page, d PermissionsData) {
+	<div id="permissions-region" class="mt-4">
+		if len(d.Perms) == 0 {
+			<div class="surface p-8 text-center">
+				<strong class="block text-lg font-display">No permissions yet</strong>
+				<span class="muted">Create the first one above, for example invoices.read.</span>
+			</div>
+		} else {
+			<div class="surface overflow-x-auto">
+				<table class="table">
+					<thead>
+						<tr>
+							<th scope="col">Permission</th>
+							<th scope="col">Description</th>
+							<th scope="col"><span class="sr-only">Actions</span></th>
+						</tr>
+					</thead>
+					<tbody>
+						for _, perm := range d.Perms {
+							<tr>
+								<td><code class="font-mono break-all">{ perm.Name }</code></td>
+								<td class="text-sm muted">{ perm.Description }</td>
+								<td class="text-right">
+									<form
+										method="post"
+										action={ p.URL("/permissions/" + perm.ID + "/delete") }
+										hx-post={ p.Path("/permissions/" + perm.ID + "/delete") }
+										hx-target="#permissions-region"
+										hx-swap="outerHTML"
+										hx-confirm={ "Delete " + perm.Name + "? Every role loses it." }
+									>
+										<button class="btn btn-sm btn-error btn-outline" type="submit" aria-label={ "Delete " + perm.Name }>Delete</button>
+									</form>
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		}
+	</div>
+}
