@@ -1,0 +1,242 @@
+package views
+
+import (
+	"fmt"
+	"strconv"
+	"time"
+)
+
+// InvitationRow is one open invitation.
+type InvitationRow struct {
+	ID           string
+	Email        string
+	Roles        []string
+	InviterEmail string // "Deleted user" once the inviter's account is gone
+	CreatedAt    time.Time
+	ExpiresAt    time.Time
+}
+
+// InvitationCreated is what an admin sees right after sending an invitation:
+// the link to copy, and whether the email went out. The link is the only way
+// to reach the invitee if it didn't.
+type InvitationCreated struct {
+	Email string
+	Link  string
+	// Note says what happened to the email, or why nothing was sent.
+	Note string
+	// Warn marks a note that needs attention (the email failed).
+	Warn bool
+}
+
+// InvitationsData is everything the invitations page needs.
+type InvitationsData struct {
+	Rows    []InvitationRow
+	Page    int
+	HasMore bool
+	Total   int // rows on this page, for the summary
+	Now     time.Time
+	Created *InvitationCreated
+	// Roles are the roles the admin may give, since EzAuth only lets someone
+	// grant roles they hold themselves.
+	Roles []string
+}
+
+func (d InvitationsData) expired(r InvitationRow) bool { return r.ExpiresAt.Before(d.Now) }
+
+func (d InvitationsData) summary() string {
+	if len(d.Rows) == 0 {
+		return ""
+	}
+	from := (d.Page-1)*InvitationsPageSize + 1
+	return fmt.Sprintf("Showing %d to %d", from, from+len(d.Rows)-1)
+}
+
+// InvitationsPageSize is how many invitations one page lists.
+const InvitationsPageSize = 10
+
+func invitationsPageURL(p Page, page int) string {
+	if page <= 1 {
+		return p.Path("/invitations")
+	}
+	return p.Path("/invitations") + "?page=" + strconv.Itoa(page)
+}
+
+func (d InvitationsData) prevHref(p Page) string {
+	if d.Page > 1 {
+		return invitationsPageURL(p, d.Page-1)
+	}
+	return ""
+}
+
+func (d InvitationsData) nextHref(p Page) string {
+	if d.HasMore {
+		return invitationsPageURL(p, d.Page+1)
+	}
+	return ""
+}
+
+templ InvitationsPage(p Page, d InvitationsData) {
+	@Layout(p, "Invitations") {
+		<h1 class="text-2xl md:text-3xl font-bold">Invitations</h1>
+		<p class="muted mt-1">Invite someone by email. They follow the link, choose a password, and their account is ready, with the roles you picked.</p>
+		<form
+			class="surface mt-5 p-4 md:p-5 space-y-4"
+			method="post"
+			action={ p.URL("/invitations") }
+			hx-post={ p.Path("/invitations") }
+			hx-target="#invitations-region"
+			hx-swap="outerHTML"
+			hx-on::after-request="if (event.detail.successful) this.reset()"
+		>
+			<div>
+				<label class="block text-sm font-medium" for="invite-email">Email</label>
+				<input id="invite-email" name="email" type="email" class="input w-full md:max-w-md mt-1" required maxlength="254" placeholder="newperson@example.com" autocomplete="off"/>
+			</div>
+			<fieldset>
+				<legend class="block text-sm font-medium">Roles <span class="font-normal muted">(optional)</span></legend>
+				if len(d.Roles) == 0 {
+					<p class="text-sm muted mt-1">You don't hold any roles you could give, so they'll get an account with no roles.</p>
+				} else {
+					<div class="flex flex-wrap gap-2 mt-2">
+						for _, r := range d.Roles {
+							<label class="btn btn-sm has-checked:bg-primary has-checked:text-primary-content has-checked:border-primary has-focus-visible:outline-3 has-focus-visible:outline-primary">
+								<input class="sr-only" type="checkbox" name="role" value={ r }/>
+								{ r }
+							</label>
+						}
+					</div>
+					<p class="text-sm muted mt-2">You can only give roles you hold yourself.</p>
+				}
+			</fieldset>
+			<button class="btn btn-primary" type="submit">Send invitation</button>
+		</form>
+		@InvitationsRegion(p, d)
+	}
+}
+
+// InvitationsRegion is the swappable part: the result of the last invite, the
+// open invitations and the pager.
+templ InvitationsRegion(p Page, d InvitationsData) {
+	<div id="invitations-region" class="mt-4 space-y-4">
+		if d.Created != nil {
+			@invitationCreated(*d.Created)
+		}
+		<h2 class="text-lg font-semibold">Open invitations</h2>
+		if len(d.Rows) == 0 {
+			<div class="surface p-8 text-center">
+				<strong class="block text-lg font-display">No open invitations</strong>
+				<span class="muted">When you invite someone, it shows up here until they accept.</span>
+			</div>
+		} else {
+			<ul class="md:hidden space-y-3">
+				for _, r := range d.Rows {
+					<li class="surface p-4">
+						<p class="font-semibold break-all">{ r.Email }</p>
+						<p class="mt-1 flex flex-wrap gap-1">
+							@invitationRoles(r)
+						</p>
+						<p class="text-xs muted mt-2">Invited by { r.InviterEmail }, { relTime(&r.CreatedAt, d.Now) }</p>
+						<p class="text-xs mt-1">
+							@invitationExpiry(d, r)
+						</p>
+						<div class="flex gap-2 mt-3">
+							@invitationActions(p, d, r)
+						</div>
+					</li>
+				}
+			</ul>
+			<div class="hidden md:block surface overflow-x-auto">
+				<table class="table">
+					<thead>
+						<tr>
+							<th scope="col">Email</th>
+							<th scope="col">Roles</th>
+							<th scope="col">Invited by</th>
+							<th scope="col">Sent</th>
+							<th scope="col">Expires</th>
+							<th scope="col"><span class="sr-only">Actions</span></th>
+						</tr>
+					</thead>
+					<tbody>
+						for _, r := range d.Rows {
+							<tr>
+								<td class="break-all">{ r.Email }</td>
+								<td>
+									<div class="flex flex-wrap gap-1">
+										@invitationRoles(r)
+									</div>
+								</td>
+								<td class="text-sm muted">{ r.InviterEmail }</td>
+								<td class="text-sm muted whitespace-nowrap">{ relTime(&r.CreatedAt, d.Now) }</td>
+								<td class="text-sm whitespace-nowrap">
+									@invitationExpiry(d, r)
+								</td>
+								<td>
+									<div class="flex justify-end gap-2">
+										@invitationActions(p, d, r)
+									</div>
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		}
+		@Pager(d.summary(), d.prevHref(p), d.nextHref(p), "#invitations-region")
+	</div>
+}
+
+templ invitationRoles(r InvitationRow) {
+	if len(r.Roles) == 0 {
+		<span class="muted text-sm">None</span>
+	}
+	for _, role := range r.Roles {
+		<span class="chip chip-role">{ role }</span>
+	}
+}
+
+templ invitationExpiry(d InvitationsData, r InvitationRow) {
+	if d.expired(r) {
+		<span class="chip chip-bad">Expired</span>
+	} else {
+		<span class="muted">{ fmtDate(r.ExpiresAt) }</span>
+	}
+}
+
+templ invitationActions(p Page, d InvitationsData, r InvitationRow) {
+	<form
+		method="post"
+		action={ p.URL("/invitations/" + r.ID + "/resend") }
+		hx-post={ p.Path("/invitations/" + r.ID + "/resend") }
+		hx-target="#invitations-region"
+		hx-swap="outerHTML"
+		hx-confirm={ "Send " + r.Email + " a new link? The old link stops working." }
+	>
+		<input type="hidden" name="page" value={ strconv.Itoa(d.Page) }/>
+		<button class="btn btn-sm" type="submit">Resend</button>
+	</form>
+	<form
+		method="post"
+		action={ p.URL("/invitations/" + r.ID + "/revoke") }
+		hx-post={ p.Path("/invitations/" + r.ID + "/revoke") }
+		hx-target="#invitations-region"
+		hx-swap="outerHTML"
+		hx-confirm={ "Revoke the invitation for " + r.Email + "? Their link stops working." }
+	>
+		<input type="hidden" name="page" value={ strconv.Itoa(d.Page) }/>
+		<button class="btn btn-sm btn-error btn-outline" type="submit">Revoke</button>
+	</form>
+}
+
+templ invitationCreated(c InvitationCreated) {
+	<section class="surface p-5 border-primary" aria-labelledby="invite-done">
+		<h2 id="invite-done" class="text-lg font-semibold">Invitation for { c.Email }</h2>
+		<p class={ "text-sm mt-1", templ.KV("text-error", c.Warn), templ.KV("muted", !c.Warn) }>{ c.Note }</p>
+		<label class="block text-sm font-medium mt-4" for="invite-link">Invitation link</label>
+		<div class="flex flex-col sm:flex-row gap-2 mt-1">
+			<input id="invite-link" class="input w-full font-mono text-sm" readonly value={ c.Link } data-select-on-focus/>
+			<button class="btn" type="button" data-copy-from="#invite-link">Copy link</button>
+		</div>
+		<p class="text-xs muted mt-2">Anyone with this link can create the account, so share it only with { c.Email }. You won't see it again.</p>
+	</section>
+}

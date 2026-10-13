@@ -41,6 +41,29 @@
 		}
 	});
 
+	// A read-only field that selects its whole value when focused, and a button
+	// that copies another field's value to the clipboard (the invitation link).
+	document.addEventListener('focusin', function (e) {
+		if (e.target.matches && e.target.matches('[data-select-on-focus]')) e.target.select();
+	});
+	document.addEventListener('click', function (e) {
+		var btn = e.target.closest('[data-copy-from]');
+		if (!btn) return;
+		var field = document.querySelector(btn.getAttribute('data-copy-from'));
+		if (!field) return;
+		var label = btn.textContent;
+		function done(ok) {
+			btn.textContent = ok ? 'Copied' : 'Press Ctrl+C';
+			setTimeout(function () { btn.textContent = label; }, 2000);
+		}
+		field.select();
+		if (navigator.clipboard && navigator.clipboard.writeText) {
+			navigator.clipboard.writeText(field.value).then(function () { done(true); }, function () { done(false); });
+		} else {
+			done(false);
+		}
+	});
+
 	// Let htmx swap error responses too: the server answers failed actions with
 	// a toast (out-of-band) and the real status code.
 	document.addEventListener('htmx:beforeSwap', function (e) {

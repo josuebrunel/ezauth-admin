@@ -72,6 +72,7 @@ func run() error {
 		http.Redirect(w, r, "/admin/", http.StatusFound)
 	})
 	r.Get("/login", loginPage(auth))
+	r.Get("/invitation/accept", invitationPage(auth)) // where the emailed invitation link lands
 
 	r.Mount("/auth", auth.Handler)
 	r.Mount("/admin", panel.Handler()) // the one line this repo is about
@@ -105,6 +106,10 @@ func applyDemoDefaults() {
 		"EZAUTH_DB_DSN":               "file:data/ezauth.db",
 		"EZAUTH_LOGIN_PAGE_URL":       "/login",
 		"EZAUTH_REDIRECT_AFTER_LOGIN": "/admin/",
+	}
+	// On Render, invitation links must use the public address, not localhost.
+	if u := os.Getenv("RENDER_EXTERNAL_URL"); u != "" {
+		defaults["EZAUTH_BASE_URL"] = u
 	}
 	for k, v := range defaults {
 		if _, ok := os.LookupEnv(k); !ok {

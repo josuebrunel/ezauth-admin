@@ -6,8 +6,9 @@ mount it on your router, like any other handler.
 ## Requirements
 
 - Go 1.25.4 or newer.
-- EzAuth v0.31.0 or newer (the panel uses `AuditLogsAll`, `UserStats`,
-  `UserSignups` and `UserProfileUpdate`, which arrived in v0.31.0).
+- EzAuth v0.32.0 or newer (the panel uses `AuditLogsAll`, `UserStats`,
+  `UserSignups` and `UserProfileUpdate` from v0.31.0, and `InvitationIssue`,
+  `InvitationsAll` and `InvitationRevokeByID` from v0.32.0).
 - An EzAuth user who holds the admin role. See [the first admin](#the-first-admin).
 
 ```sh
@@ -91,6 +92,45 @@ Or in code: create the role with `auth.RoleCreate`, then `auth.UserRoleGrant`.
 If you use `WithRole`, grant that role instead. From then on, admins can give
 the role to others from a user's page.
 
+## Invitations
+
+The Invitations page lets an admin invite someone by email. The invitee follows
+the link, chooses a password, and gets an account with a verified email and the
+roles the admin picked. The panel handles the admin side. Two things on your side
+make the invitee's side work:
+
+1. **An accept page in your app.** The emailed link lands on your app, not on the
+   panel, because the panel is only for admins. EzAuth sends the invitee to
+   `EZAUTH_INVITATION_ACCEPT_PAGE_URL` (default `/invitation/accept`) with `?token=`.
+   That page shows a form with the token, a password and its confirmation, and
+   optionally a first and last name, and posts it to EzAuth's
+   `POST /auth/invitation/accept`. EzAuth sends a failed submit back to your page
+   without the token, so keep the token in a short-lived cookie to let them retry.
+   `examples/chi/invitation.go` is a working page you can copy.
+2. **The public address.** The link is built from `EZAUTH_BASE_URL` (default
+   `http://localhost:8080`). Set it to the address people reach your app at, or the
+   links will point at localhost.
+
+Email goes through EzAuth's SMTP settings (`EZAUTH_SMTP_*`). With none configured,
+EzAuth uses a mock mailer that sends nothing, and the panel says so and shows the
+link, so you can paste it into a message yourself. The link is shown once, when
+you invite or resend, and never stored.
+
+What the page does:
+
+- **Roles.** Only the roles the admin holds are offered. EzAuth refuses to put a
+  role on an invitation that its sender doesn't hold, so an invitation can never
+  give more access than the person who sent it has.
+- **One open invitation per address.** A second one is refused, and so is an address
+  that already has an account.
+- **Resend.** The link is only stored as a hash, so resending issues a new one and
+  retires the old one. The new invitation keeps the same email and roles.
+- **Revoke.** Any admin can revoke any open invitation, whoever sent it.
+- **Expiry.** Invitations last seven days (`EZAUTH_INVITATION_TTL`). Expired ones stay
+  in the list, marked, so you can resend them.
+
+Where the new account lands after accepting is `EZAUTH_REDIRECT_AFTER_REGISTER`.
+
 ## How access works
 
 - Every route is closed by default. Someone who isn't signed in is redirected to
@@ -127,6 +167,12 @@ Point `EZAUTH_LOGIN_PAGE_URL` at it.
 
 **A signed-in user gets a 403.** They don't hold the role. Check `WithRole`
 against the role you granted.
+
+**An invitation link gives a 404.** Your app has no page at the accept URL. See
+[Invitations](#invitations).
+
+**An invitation link starts with `http://localhost:8080`.** Set `EZAUTH_BASE_URL`
+to your public address.
 
 **Pages show unstyled, or `/admin/static/...` is a 404.** The panel's base path
 and your mount path disagree. See [Options](#options).

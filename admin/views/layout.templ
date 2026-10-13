@@ -38,6 +38,7 @@ func navItems() []navItem {
 	return []navItem{
 		{Key: "dashboard", Label: "Dashboard", Path: "/"},
 		{Key: "users", Label: "Users", Path: "/users"},
+		{Key: "invitations", Label: "Invitations", Path: "/invitations"},
 		{Key: "roles", Label: "Roles", Path: "/roles"},
 		{Key: "permissions", Label: "Permissions", Path: "/permissions"},
 		{Key: "audit", Label: "Audit log", Path: "/audit"},
@@ -66,6 +67,8 @@ templ icon(key string) {
 			@iconDashboard()
 		case "users":
 			@iconUsers()
+		case "invitations":
+			@iconMail()
 		case "roles":
 			@iconRoles()
 		case "permissions":

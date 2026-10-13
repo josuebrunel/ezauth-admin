@@ -2,7 +2,7 @@
 
 **A ready-made admin panel for [EzAuth](https://github.com/josuebrunel/ezauth). Mount it with one line.**
 
-Users, roles, permissions, an audit log and a dashboard, running on your existing EzAuth instance and database. No extra service to deploy, no migrations of its own.
+Users, invitations, roles, permissions, an audit log and a dashboard, running on your existing EzAuth instance and database. No extra service to deploy, no migrations of its own.
 
 **Live demo: <https://ezauth-admin.onrender.com/admin/>**, sign in as `admin@example.com` with `demo-admin-password`.
 
@@ -15,13 +15,13 @@ Users, roles, permissions, an audit log and a dashboard, running on your existin
 
 [Quick start](#quick-start) · [Try the demo](#try-the-demo) · [What you get](#what-you-get) · [Options](#options) · [Security](#security) · [Mounting guide](docs/mounting.md)
 
-> **Status:** early, but complete: everything below works. Needs EzAuth v0.31.0 or newer.
+> **Status:** early, but complete: everything below works. Needs EzAuth v0.32.0 or newer.
 
 If you use EzAuth as a library, you'll build an admin panel at some point. Everyone does. It's never the interesting part of your app, and it always takes longer than you think. So I built it once.
 
 ## Quick start
 
-You need Go 1.25.4 or newer, and EzAuth v0.31.0 or newer.
+You need Go 1.25.4 or newer, and EzAuth v0.32.0 or newer.
 
 ### 1. Install
 
@@ -126,6 +126,8 @@ Sign in with one of these:
 
 Sign in as alice and open `/admin/` to see what a non-admin gets: a 403.
 
+To try invitations, open **Invitations**, send one, and open the link it shows in a private window to finish as the invitee. The demo has no mail server, so the panel shows the link instead of emailing it.
+
 It's a shared demo on a free server, so the first load can be slow if it's asleep, and everything resets whenever it restarts. Please be kind to it.
 
 **On your machine:** Docker runs the same example app, with the panel mounted, on SQLite, and the same admin and four demo users already created:
@@ -144,6 +146,7 @@ These passwords are for the demo only. Use your own, and your own `EZAUTH_*` sec
 |---|---|
 | **Dashboard** | See user counts, a 14-day sign-ups chart and the latest activity. |
 | **Users** | Search, filter by status, and page through everyone. Open a user to edit the profile, suspend or reactivate, grant and revoke roles, keep admin-only notes, impersonate, or delete (you type the email to confirm). |
+| **Invitations** | Invite someone by email with the roles you pick, see who hasn't accepted yet, and resend or revoke. The link is shown too, for when email isn't set up. |
 | **Roles** | Create and delete roles, and choose the permissions each one holds. |
 | **Permissions** | Create and delete the permissions your app checks. |
 | **Audit log** | Read sign-ins, role changes, impersonation and deletions across all users, filtered by event. |
