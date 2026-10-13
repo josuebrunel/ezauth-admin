@@ -34,6 +34,7 @@ var loginTmpl = template.Must(template.New("login").Parse(`<!DOCTYPE html>
 				<input class="input w-full" type="password" name="password" placeholder="Password" required>
 			</label>
 			<button class="btn btn-primary" type="submit">Log in</button>
+			<div class="flex justify-between text-sm"><a class="link" href="/register">Create an account</a><a class="link" href="/forgot-password">Forgot password?</a></div>
 		</div>
 	</form>
 </body>
@@ -42,7 +43,7 @@ var loginTmpl = template.Must(template.New("login").Parse(`<!DOCTYPE html>
 func loginPage(auth *ezauth.EzAuth) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if ezauth.IsAuthenticated(r.Context()) {
-			http.Redirect(w, r, "/admin/", http.StatusFound)
+			http.Redirect(w, r, "/account", http.StatusFound)
 			return
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
