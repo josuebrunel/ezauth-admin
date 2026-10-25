@@ -27,13 +27,25 @@ const (
 
 // isHTMX reports whether the request came from htmx (and wants a fragment).
 func isHTMX(r *http.Request) bool {
-	return r.Header.Get("HX-Request") == "true" && r.Header.Get("HX-Boosted") != "true"
+	return r.Header.Get("HX-Request") == "true" && !isBoosted(r) && !isHistoryRestore(r)
+}
+
+// isBoosted reports whether the request is an hx-boost navigation, which wants
+// the page content for #main rather than a fragment.
+func isBoosted(r *http.Request) bool {
+	return r.Header.Get("HX-Boosted") == "true" && !isHistoryRestore(r)
+}
+
+// isHistoryRestore reports whether htmx is refilling the page after a back or
+// forward step, which needs the whole document.
+func isHistoryRestore(r *http.Request) bool {
+	return r.Header.Get("HX-History-Restore-Request") == "true"
 }
 
 // render writes a templ component as an HTML response with the given status.
 func render(w http.ResponseWriter, r *http.Request, status int, c templ.Component) error {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Header().Add("Vary", "HX-Request")
+	w.Header().Add("Vary", "HX-Request, HX-Boosted, HX-History-Restore-Request")
 	w.WriteHeader(status)
 	return c.Render(r.Context(), w)
 }

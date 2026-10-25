@@ -48,7 +48,7 @@ func (p *Panel) renderError(w http.ResponseWriter, r *http.Request, err error) {
 			"method", r.Method, "path", r.URL.Path, "status", code, "err", err)
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Header().Add("Vary", "HX-Request")
+	w.Header().Add("Vary", "HX-Request, HX-Boosted, HX-History-Restore-Request")
 
 	// An htmx action answers with a toast and leaves the page as it is.
 	if isHTMX(r) {

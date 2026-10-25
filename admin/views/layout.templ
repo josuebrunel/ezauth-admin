@@ -12,6 +12,9 @@ type Page struct {
 	Crumbs []Crumb
 	// Notice is a one-off message carried over a redirect ("Profile saved.").
 	Notice string
+	// Boosted is set when an hx-boost navigation asked for this page: the
+	// layout then answers with the content only, and the shell stays put.
+	Boosted bool
 	// Scripts are extra scripts for this page, as paths under the panel's
 	// base path (the dashboard loads Chart.js this way).
 	Scripts []string
@@ -78,9 +81,38 @@ templ icon(key string) {
 	}
 }
 
+// mainNav is the sidebar menu. As an out-of-band fragment it refreshes the
+// highlighted section after a boosted navigation.
+templ mainNav(p Page, oob bool) {
+	<nav
+		id="main-nav"
+		aria-label="Main"
+		class="mt-4 space-y-1"
+		if oob {
+			hx-swap-oob="true"
+		}
+	>
+		for _, item := range navItems() {
+			<a
+				class="nav-link"
+				href={ p.URL(item.Path) }
+				if item.Key == "dashboard" {
+					hx-boost="false"
+				}
+				if item.Key == p.Active {
+					aria-current="page"
+				}
+			>
+				@icon(item.Key)
+				{ item.Label }
+			</a>
+		}
+	</nav>
+}
+
 templ sidebar(p Page) {
 	<aside class="min-h-full w-72 bg-base-200 border-r border-base-300 p-4 flex flex-col">
-		<a href={ p.URL("/") } class="flex items-center gap-3 px-2 py-3">
+		<a href={ p.URL("/") } hx-boost="false" class="flex items-center gap-3 px-2 py-3">
 			<span class="size-9 rounded-xl bg-primary text-primary-content grid place-items-center">
 				@iconShield()
 			</span>
@@ -89,20 +121,7 @@ templ sidebar(p Page) {
 				<span class="block text-xs muted">Admin</span>
 			</span>
 		</a>
-		<nav aria-label="Main" class="mt-4 space-y-1">
-			for _, item := range navItems() {
-				<a
-					class="nav-link"
-					href={ p.URL(item.Path) }
-					if item.Key == p.Active {
-						aria-current="page"
-					}
-				>
-					@icon(item.Key)
-					{ item.Label }
-				</a>
-			}
-		</nav>
+		@mainNav(p, false)
 		if p.User != nil {
 			<p class="mt-auto text-xs muted px-2 pt-6">
 				Signed in as
@@ -113,15 +132,24 @@ templ sidebar(p Page) {
 	</aside>
 }
 
-templ breadcrumbs(p Page) {
-	<nav aria-label="Breadcrumb" class="flex-1 min-w-0">
+templ breadcrumbs(p Page, oob bool) {
+	<nav
+		id="breadcrumbs"
+		aria-label="Breadcrumb"
+		class="flex-1 min-w-0"
+		if oob {
+			hx-swap-oob="true"
+		}
+	>
 		<ol class="flex items-center gap-2 text-sm muted">
 			for i, c := range p.Crumbs {
 				if i > 0 {
 					<li class="hidden sm:block" aria-hidden="true">/</li>
 				}
 				if c.Href != "" {
-					<li class="hidden sm:block"><a class="link" href={ p.URL(c.Href) }>{ c.Label }</a></li>
+					<li class="hidden sm:block"><a class="link" href={ p.URL(c.Href) } if c.Href == "/" {
+						hx-boost="false"
+					}>{ c.Label }</a></li>
 				} else {
 					<li class="text-base-content font-medium truncate" aria-current="page">{ c.Label }</li>
 				}
@@ -136,7 +164,7 @@ templ topbar(p Page) {
 			<label for="nav-drawer" class="btn btn-ghost btn-square lg:hidden" aria-label="Open navigation">
 				@iconMenu()
 			</label>
-			@breadcrumbs(p)
+			@breadcrumbs(p, false)
 			<button class="btn btn-ghost btn-square" data-theme-toggle aria-label="Dark theme" aria-pressed="false">
 				@iconMoon()
 				@iconSun()
@@ -153,10 +181,40 @@ templ topbar(p Page) {
 // Layout is the shared shell: head, sidebar, top bar, content slot and the
 // toast region that HTMX responses swap messages into.
 templ Layout(p Page, title string) {
+	if p.Boosted {
+		@boostedContent(p, title) {
+			{ children... }
+		}
+	} else {
+		@fullLayout(p, title) {
+			{ children... }
+		}
+	}
+}
+
+// boostedContent answers an hx-boost navigation: the new title, the
+// breadcrumbs and menu as out-of-band swaps, and the page content for #main.
+templ boostedContent(p Page, title string) {
+	<title>{ title } · { p.AppName } Admin</title>
+	@breadcrumbs(p, true)
+	@mainNav(p, true)
+	@mainBody(p) {
+		{ children... }
+	}
+}
+
+templ mainBody(p Page) {
+	if p.Notice != "" {
+		<div role="status" class="alert alert-success mb-4">{ p.Notice }</div>
+	}
+	{ children... }
+}
+
+templ fullLayout(p Page, title string) {
 	<!DOCTYPE html>
 	<html lang="en">
 		@head(p, title)
-		<body>
+		<body hx-boost="true" hx-target="#main" hx-swap="innerHTML transition:true show:window:top">
 			<div class="mesh" aria-hidden="true"></div>
 			<a href="#main" class="btn btn-primary absolute -top-20 left-2 focus:top-2 z-50">Skip to content</a>
 			<div class="drawer lg:drawer-open">
@@ -164,10 +222,9 @@ templ Layout(p Page, title string) {
 				<div class="drawer-content flex flex-col min-w-0">
 					@topbar(p)
 					<main id="main" class="px-4 py-6 md:py-10 max-w-6xl mx-auto w-full">
-						if p.Notice != "" {
-							<div role="status" class="alert alert-success mb-4">{ p.Notice }</div>
+						@mainBody(p) {
+							{ children... }
 						}
-						{ children... }
 					</main>
 				</div>
 				<div class="drawer-side z-40">

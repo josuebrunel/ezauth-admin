@@ -64,6 +64,16 @@
 		}
 	});
 
+	// After a boosted navigation, close the mobile menu and move focus to the
+	// new content so keyboard and screen reader users land on it.
+	document.addEventListener('htmx:afterSwap', function (e) {
+		if (!e.detail.boosted) return;
+		var drawer = document.getElementById('nav-drawer');
+		if (drawer) drawer.checked = false;
+		var main = document.getElementById('main');
+		if (main) { main.setAttribute('tabindex', '-1'); main.focus({ preventScroll: true }); }
+	});
+
 	// Let htmx swap error responses too: the server answers failed actions with
 	// a toast (out-of-band) and the real status code.
 	document.addEventListener('htmx:beforeSwap', function (e) {

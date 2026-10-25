@@ -235,6 +235,7 @@ func (p *Panel) page(r *http.Request, active string, crumbs ...views.Crumb) view
 		Active:   active,
 		Crumbs:   crumbs,
 		Notice:   notices[r.URL.Query().Get("notice")],
+		Boosted:  isBoosted(r),
 	}
 }
 
