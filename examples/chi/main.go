@@ -69,22 +69,9 @@ func run() error {
 	// App-owned pages. They live outside /auth and /admin and must not sit
 	// behind LoginRequired, or login would redirect to itself.
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/account", http.StatusFound)
+		http.Redirect(w, r, "/admin/", http.StatusFound)
 	})
 	r.Get("/login", loginPage(auth))
-	r.Get("/register", registerPage(auth))
-	r.Get("/forgot-password", forgotPage(auth))
-	r.Get("/reset-password", resetPage(auth))
-	// The emailed reset link is a GET that ezauth's POST-only route can't
-	// serve. Chi matches this exact path before the /auth mount below.
-	r.Get("/auth/password-reset/confirm", resetRedirect)
-
-	acct := account{auth}
-	r.Get("/account", acct.profilePage)
-	r.Post("/account/profile", acct.profileUpdate)
-	r.Post("/account/password", acct.passwordUpdate)
-	r.Get("/account/api-keys", acct.apiKeysPage)
-	r.Get("/account/sessions", acct.sessionsPage)
 	r.Get("/invitation/accept", invitationPage(auth)) // where the emailed invitation link lands
 
 	r.Mount("/auth", auth.Handler)
@@ -118,7 +105,7 @@ func applyDemoDefaults() {
 		"EZAUTH_DB_DIALECT":           "sqlite",
 		"EZAUTH_DB_DSN":               "file:data/ezauth.db",
 		"EZAUTH_LOGIN_PAGE_URL":       "/login",
-		"EZAUTH_REDIRECT_AFTER_LOGIN": "/account",
+		"EZAUTH_REDIRECT_AFTER_LOGIN": "/admin/",
 	}
 	// On Render, invitation links must use the public address, not localhost.
 	if u := os.Getenv("RENDER_EXTERNAL_URL"); u != "" {
